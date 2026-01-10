@@ -1,0 +1,66 @@
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v6.0.0
+  hooks:
+  - id: check-case-conflict
+  - id: check-executables-have-shebangs
+  - id: check-illegal-windows-names
+  - id: check-merge-conflict
+  - id: check-shebang-scripts-are-executable
+  - id: check-toml
+  - id: check-yaml
+  - id: end-of-file-fixer
+  - id: fix-byte-order-marker
+  - id: trailing-whitespace
+- repo: https://github.com/codespell-project/codespell
+  rev: v2.4.1
+  hooks:
+  - id: codespell
+- repo: https://github.com/executablebooks/mdformat
+  rev: 0.7.22
+  hooks:
+    - id: mdformat
+      additional_dependencies:
+      - mdformat-frontmatter
+      args:
+      - --check
+- repo: https://github.com/DetachHead/basedpyright-pre-commit-mirror
+  rev: 1.31.7
+  hooks:
+  - id: basedpyright
+    args: &basedpyright-args
+    - --venvpath=.
+    - --level=error  # suppress warnings
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  rev: v0.14.1
+  hooks:
+  - id: ruff-check
+    args: &ruff-check-args
+    - --ignore=FIX  # allow FIXME and similar comments
+  - id: ruff-format
+    args: &ruff-format-args
+    - --diff
+# Run `basedpyright` and `ruff` on markdown notebooks.
+- repo: local
+  hooks:
+  - &jupytext-check-hook
+    id: jupytext-basedpyright
+    name: jupytext basedpyright
+    entry: ./dev/scripts/jupytext_check.py "basedpyright"
+    language: python
+    types: [markdown]
+    files: ^notebooks/
+    args: *basedpyright-args
+    additional_dependencies: ["git+https://github.com/DetachHead/basedpyright-pre-commit-mirror@1.31.7"]
+  - <<: *jupytext-check-hook
+    id: jupytext-ruff-check
+    name: jupytext ruff check
+    entry: ./dev/scripts/jupytext_check.py "ruff check"
+    args: *ruff-check-args
+    additional_dependencies: ["git+https://github.com/astral-sh/ruff-pre-commit@v0.14.1"]
+  - <<: *jupytext-check-hook
+    id: jupytext-ruff-format
+    name: jupytext ruff format
+    entry: ./dev/scripts/jupytext_check.py "ruff format"
+    args: *ruff-format-args
+    additional_dependencies: ["git+https://github.com/astral-sh/ruff-pre-commit@v0.14.1"]

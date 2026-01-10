@@ -1,0 +1,3 @@
+[submodule "packages/idanb-lib"]
+	path = packages/idanb-lib
+	url = git@gitlab.ics.muni.cz:csirt-mu-analytics/analytical-notebooks-idanb/idanb-lib.git

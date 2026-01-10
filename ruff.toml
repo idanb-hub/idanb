@@ -1,0 +1,63 @@
+extend = "pyproject.toml"
+
+line-length = 80
+
+# Couldn't find a way to include gitignored notebooks when this is on.
+respect-gitignore = false
+
+[lint]
+select = ["ALL"]
+ignore = [
+    "ANN401",  # Use of `typing.Any`
+    "D1",      # Missing docstrings
+    "D202",    # Blank line after function docstring
+    "D203",    # Blank line required before class docstring
+    "D213",    # Multi-line docstring summary should start at the second line
+    "D413",    # Missing blank line after last docstring section
+    "D418",    # Docstring on `@overload`-ed function (some LSPs support this)
+    "N812",    # Lowercase imported as uppercase (`import typing as T`)
+    "S101",    # Use of `assert` (useful for type narrowing)
+    "TD002",   # Missing author in TODO (just use git blame)
+    "TD003",   # Missing issue link in TODO
+
+    # https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
+    "W191",
+    "E111",
+    "E114",
+    "E117",
+    "D206",
+    "D300",
+    "Q000",
+    "Q001",
+    "Q002",
+    "Q003",
+    "COM812",
+    "COM819",
+    "ISC002",
+    "E501",
+]
+
+[lint.flake8-boolean-trap]
+extend-allowed-calls = [
+    "solara.reactive",
+    "solara.use_reactive",
+]
+
+[lint.isort]
+force-wrap-aliases = true
+combine-as-imports = true
+known-first-party = [
+    "analytics",
+    "idanb",
+]
+
+[lint.pycodestyle]
+max-doc-length = 80  # unlimited by default
+
+[lint.per-file-ignores]
+"src/scripts/**" = [
+    "INP001",  # Implicit namespace package (missing `__init__.py`)
+]
+"src/**/__init__.py" = [
+    "PLC0414", # Useless import aliases (used for re-exporting imports)
+]

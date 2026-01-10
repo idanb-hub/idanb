@@ -1,0 +1,64 @@
+[project]
+name = "idanb"
+version = "0.1.0"
+description = "Jupyter Notebooks for interactive data analysis"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    # Don't edit these manually, use `uv add/remove` instead!
+    "anywidget>=0.9.13",
+    "idanb-labconfig",
+    "idanb-lib",
+    "ipykernel>=6.29.5",
+    "ipywidgets>=8.1.5",
+    "itables[widget]>=2.4.4",
+    "jupytext>=1.16.7",
+    "polars[pyarrow]>=1.22.0",
+    "pydantic>=2.10.6",
+    "pygit2>=1.18.2",
+    "pyyaml>=6.0.2",
+    "solara-ui[markdown]>=1.44.1",
+    "structlog>=25.2.0",
+]
+
+[project.optional-dependencies]
+local = [
+    "jupyterlab>=4.4.1",
+    "jupyterlab-unfold>=0.3.4",
+    "voila>=0.5.8",
+]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.1.0",
+    "typing-extensions>=4.12.2",
+]
+
+[tool.basedpyright]
+extraPaths = [
+    "packages/idanb-lib/src",
+]
+venv = ".venv"
+venvPath = "."
+
+[tool.codespell]
+ignore-words = ".codespell-whitelist.txt"
+skip = "*.csv"
+
+[tool.jupytext]
+notebook_metadata_filter = "-all"
+split_at_heading = true
+formats = "ipynb,md:markdown"
+
+[tool.ruff]
+# Moved to => ruff.toml
+
+[tool.uv.sources]
+idanb-labconfig = { workspace = true }
+idanb-lib = { workspace = true }
+
+[tool.uv.workspace]
+members = [
+    "packages/labconfig",
+    "packages/idanb-lib",
+]
