@@ -548,7 +548,7 @@ requires-dist = [
     { name = "polars", extras = ["pyarrow"], specifier = ">=1.37.0" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "pyyaml", specifier = ">=6.0.3" },
-    { name = "service-connectors-v2", extras = ["intelowl", "trino"], git = "ssh://git@gitlab.ics.muni.cz/csirt-mu-analytics/service-connectors-v2.git" },
+    { name = "service-connectors-v2", extras = ["intelowl", "trino"], git = "https://github.com/idanb-hub/service-connectors.git" },
     { name = "solara-ui", extras = ["markdown"], specifier = ">=1.56.0" },
     { name = "structlog", specifier = ">=25.5.0" },
 ]
@@ -1917,8 +1917,8 @@ wheels = [
 
 [[package]]
 name = "service-connectors-v2"
-version = "0.1.dev30+g7c7061196"
-source = { git = "ssh://git@gitlab.ics.muni.cz/csirt-mu-analytics/service-connectors-v2.git#7c706119682d5a60ebd7dac726fb5506886c0261" }
+version = "0.1.dev32+g1b5062ab9"
+source = { git = "https://github.com/idanb-hub/service-connectors.git#1b5062ab9d16ea5680d649924b3f0787aae3d22d" }
 dependencies = [
     { name = "certifi" },
     { name = "pydantic" },
