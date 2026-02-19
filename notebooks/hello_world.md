@@ -4,30 +4,32 @@
 
 This should be the first cell of every notebook.
 Don't modify it unless you have to.
-It finds and runs the `nbinit` script, which sets up the notebook's environment.
+When imported, the `nbinit` module sets up the notebook's environment.
 It also defines a logger, because everyone needs one.
 
 ```python
 from __future__ import annotations
 
-from idanb.nbinit import logger, nbinit  # noqa: F401
-
-nbinit()
+from idanb.nbinit import logger
 ```
 
 ## Imports
 
-After `nbinit` has run, you can also import contents of `src/` directory.
+Unless you have a reason not to, put all imports at the start of the notebook.
+One such reason would be when an import is used only by a single cell.
+Consider moving such import the cell where it is used.
 
 ```python
 import datetime
 
-# UI components.
-import solara
-import solara.lab
+# UI framework.
+import reacton
+
+# Material UI components.
+from ipymui.components import mui
 
 # Custom UI components.
-from idanb import components
+from idanb import ui
 ```
 
 ## Configuration
@@ -67,64 +69,69 @@ assert CONFIG["hello_world", "hello"] == "world"
 assert CONFIG.get("hello_world", "optional") is None
 ```
 
-## Solara
+## Reacton
 
-React-like UI library.
+React-like UI library. It handles state management and component composition.
+but does not ship with any components.
+For that, we use [`ipymui`](https://codeberg.org/steovd/ipymui#readme),
+which exposes most of [Material UI components](https://mui.com/material-ui/all-components/)
+as Jupyter widgets.
 
 ### Component Quickstart
 
 ```python
-@solara.component
+@reacton.component
 def Range() -> None:  # noqa: N802
     # Think of the function as a render pass. When component state changes,
     # it is re-rendered by executing this function. Changes may come from
-    # user's actions or from code in this function.
+    # user's actions (e.g. button clicked) or from code (e.g. timeout expired).
 
-    # Reactive variables persist between renders. They hold the component state.
-    lo = solara.use_reactive(0.0)
-    hi = solara.use_reactive(10.0)
+    # State hooks allow to define state that persists between renders.
+    lo, set_lo = reacton.use_state(0.0)
+    hi, set_hi = reacton.use_state(100.0)
 
-    # Use `.get()` to read reactive's current value.
-    mid = (lo.get() + hi.get()) / 2
+    # It's OK to use regular variables for inexpensive operations.
+    mid = (lo + hi) / 2
 
     # UI layout is declared by calling component functions.
     # With statements are used to nest components (`with parent: children`).
-    # Here, the `LocalCSS` component applies CSS rules to its children.
-    with components.LocalCSS({".v-label": "width: 6ex;"}):
-        # Reactive variables can receive values from input components.
-        solara.SliderFloat(label="Low", value=lo)
-        solara.SliderFloat(label="High", value=hi)
-        # You can also use "normal" values, but those are output-only.
-        solara.SliderFloat(label="Middle", value=mid, disabled=True)
+    with mui.Stack(direction="column", margin=4):
+        mui.Typography("Low")
+        mui.Slider(value=lo, onChange=lambda _, value: set_lo(value))
+        mui.Typography("High")
+        mui.Slider(value=hi, onChange=lambda _, value: set_hi(value))
+        mui.Typography("Middle")
+        mui.Slider(value=mid, disabled=True)
 
-    # Use `.set()` to set reactive's value. If the new value is different
-    # from the previous one, the component will be re-rendered.
-    hi.set(max(lo.get(), hi.get()))
+    # Using the setter queues this component to be re-rendered (with modified
+    # state), but only if the new value is not equal to the current one.
+    set_hi(max(lo, hi))
 
     # NOTE: This would create an infinite loop.
-    # hi.set(hi.get() + 1)  # noqa: ERA001
+    # set_hi(hi + 1)  # noqa: ERA001
 
-    # Implicitly, components are laid out in `solara.Column()`.
-    with solara.Row():
-        solara.Button(
-            label="Reset Low",
-            # When clicked, reactive's value will change, triggering re-render.
-            on_click=lambda: lo.set(0.0),
-            color="primary",
-            disabled=lo.get() == 0.0,
+    with mui.Stack(direction="row", gap=1):
+        mui.Button(
+            "Reset Low",
+            # When clicked, the state will change, triggering re-render.
+            onClick=lambda: set_lo(0.0),
+            disabled=lo == 0.0,
         )
-        solara.Button(
-            label="Reset High",
-            on_click=lambda: hi.set(10.0),
-            color="primary",
-            disabled=hi.get() == 10.0,  # noqa: PLR2004
+        mui.Button(
+            "Reset High",
+            onClick=lambda: set_hi(100.0),
+            disabled=hi == 100.0,  # noqa: PLR2004
         )
 
-    # Memos' values are memoized on first-render. Notably, they are useful for
-    # initializing random values or dates/times.
-    first = solara.use_memo(lambda: datetime.datetime.now())  # noqa: DTZ005
-    current = datetime.datetime.now()  # noqa: DTZ005
-    solara.Info(f"Component first rendered at {first}, last at {current}.")
+    # Memos' values are memoized on first-render and recalulated only when their
+    # dependencies (if any) change. Notably, they are useful for initializing
+    # random values or dates/times.
+    first = reacton.use_memo(
+        lambda: datetime.datetime.now(datetime.UTC),
+        dependencies=[],
+    )
+    current = datetime.datetime.now(datetime.UTC)
+    mui.Alert(f"Component first rendered at {first}, last at {current}.")
 
 
 Range()
@@ -133,23 +140,24 @@ Range()
 The `Range` component doesn't use any global state, making it perfectly reusable.
 
 ```python
-@solara.component
+@reacton.component
 def Ranges(count: int) -> None:  # noqa: N802
-    with solara.Row():
+    with mui.Stack(direction="row", spacing=1):
         for _ in range(count):
-            with solara.Column(style="flex: 1;"):
+            with mui.Stack(direction="column"):
                 Range()
 
 
-Ranges(3)
+Ranges(2)
 ```
 
 ### Fundamentals
 
 #### Components
 
-The `component` decorator is used for creating function components.
+The `@reacton.component` decorator is used for creating function components.
 Function components combine other components, along with state and logic.
+
 There are also widget components, which are the "foundational" components,
 such as text, buttons, or layout containers. Every `ipywidgets` widget class
 gains the `.element(**kwargs)` classmethod, using which a component can be
@@ -163,8 +171,8 @@ I recommend at least reading about the fundamentals here:
 
 #### Hooks
 
-In solara (and React), hooks are functions through which components interact
-with the renderer. You've already seen two: `use_reactive` and `use_memo`.
+In Reacton (and React), hooks are functions through which components interact
+with the renderer. You've already seen two: `use_state` and `use_memo`.
 By convention, hooks' names start with `use_`.
 
 Hooks can only be used in function components, and must run in the same order
@@ -174,16 +182,9 @@ for more information and common pitfalls.
 
 #### Further Reading
 
-Aside from the [API docs](https://solara.dev/documentation/api),
-the [Understanding](https://solara.dev/documentation/advanced/understanding)
-chapter is a great resource for learning how things work.
-
-Note that in some places, those docs haven't been updated to use the new,
-now preferred features, and show the outdated ways of doing things instead,
-such as:
-
-- `use_state` (old, bad) instead of `use_reactive` (new, good)
-- unnecessary global state (`reactive`) instead of component-local state (`use_reactive`)
+Aside from [Reacton's API docs](https://reacton.solara.dev/en/latest/api/),
+the [Solara's Understanding chapter](https://solara.dev/documentation/advanced/understanding)
+is a great resource for learning how things work.
 
 ### Tasks
 
@@ -196,58 +197,58 @@ For better UX, can show a progress bar or allow the task to be cancelled.
 import asyncio
 
 
-@solara.component
+@reacton.component
 def Inverse() -> None:  # noqa: N802
-    solara.HTML(
-        "h2",
+    mui.Typography(
         "Calculate multiplicative inverse of number (very slowly)",
+        variant="h4",
     )
 
-    with components.LocalCSS({".v-label": "width: 6ex;"}):
-        number = solara.use_reactive(5)
-        solara.SliderInt(label="Number", value=number, tick_labels=True)
+    with mui.Stack(direction="column"):
+        mui.Typography("Number")
+        number, set_number = reacton.use_state(5)
+        mui.Slider(
+            value=number,
+            onChange=lambda _, value: set_number(value),
+            marks=True,
+            step=1,
+        )
 
-        delay = solara.use_reactive(2)
-        solara.SliderInt(label="Delay", value=delay, tick_labels=True)
+        mui.Typography("Delay")
+        delay, set_delay = reacton.use_state(2)
+        mui.Slider(
+            value=delay,
+            onChange=lambda _, value: set_delay(value),
+            marks=True,
+            step=1,
+        )
 
-    # This decorator turns a function into a `Task` variable, that has a number
-    # of read-only reactive attributes. Tasks are executed in the background to
-    # avoid blocking UI. Attributes `.pending`, `.progress` and `.value`
-    # describe the computation state and result.
-    @solara.lab.use_task(
-        # Task is automatically re-executed when its dependencies change.
-        dependencies=[number.get()],
-        # Catch raised exceptions into the `.exception` reactive attribute.
-        raise_error=False,
-    )
+    progress, set_progress = reacton.use_state(0.0)
+
+    # This decorator turns an async function into a `Task` state variable.
+    # Tasks are executed in the background to avoid blocking UI. Attributes
+    # `.pending`, `.exception` and `.result` describe the computation state
+    # and result.
+    @ui.use_task()
     async def inverse() -> float:
-        d = delay.get()
-        for i in range(d * 10):
+        for i in range(delay * 10):
             # Can be any float, but progress bar expects numbers from 0 to 100.
-            inverse.progress = (i + 1) / d * 10
+            set_progress((i + 1) / delay * 10)
             await asyncio.sleep(0.1)
         # This raises when number is zero.
-        return 1 / number.get()
+        return 1 / number
 
-    solara.ProgressLinear(inverse.progress or 0 if inverse.pending else False)
+    if inverse.pending:
+        mui.LinearProgress(variant="determinate", value=progress)
+    elif inverse.exception is not None:
+        mui.Alert(str(inverse.exception), severity="error")
+    elif inverse.result is not inverse.NO_RESULT:
+        mui.Alert(f"Multiplicative inverse: {inverse.result}", icon=False)
 
-    if inverse.finished:
-        assert inverse.value is not None
-        solara.Info(f"Multiplicative inverse: {inverse.value}", icon=False)
-    elif inverse.error:
-        assert inverse.exception is not None
-        solara.Error(str(inverse.exception))
-
-    # Custom button component for controlling tasks.
-    # If the task is already pending, clicking this cancels it.
-    components.TaskButton(
-        task=inverse,
-        label="Recalculate",
-        # These are applied only if the task is pending.
-        if_pending={
-            "label": "Cancel",
-            "color": "error",
-        },
+    mui.Button(
+        "Recalculate" if not inverse.pending else "Cancel",
+        onClick=lambda: inverse() if not inverse.pending else inverse.cancel(),
+        color="primary" if not inverse.pending else "error",
     )
 
 

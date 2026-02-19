@@ -39,9 +39,11 @@ ignore = [
 
 [lint.flake8-boolean-trap]
 extend-allowed-calls = [
-    "solara.reactive",
-    "solara.use_reactive",
+    "reacton.use_state",
 ]
+
+[lint.flake8-comprehensions]
+allow-dict-calls-with-keyword-arguments = true
 
 [lint.isort]
 force-wrap-aliases = true
@@ -54,10 +56,15 @@ known-first-party = [
 [lint.pycodestyle]
 max-doc-length = 80  # unlimited by default
 
+[lint.pyflakes]
+allowed-unused-imports = [
+    "idanb.nbinit",
+]
+
 [lint.per-file-ignores]
 "src/scripts/**" = [
     "INP001",  # Implicit namespace package (missing `__init__.py`)
 ]
-"src/**/__init__.py" = [
+"**/__init__.py" = [
     "PLC0414", # Useless import aliases (used for re-exporting imports)
 ]

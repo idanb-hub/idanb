@@ -1,0 +1,14 @@
+developer: false
+
+data_platform:
+  hosts:
+    short_queries: trino-1.svc.csirt.muni.cz
+    long_queries: trino-2.svc.csirt.muni.cz
+  port: 443
+  catalogs:
+    flows: iceberg
+    opensearch: opensearch
+  schema: default
+  http_scheme: https
+  auth_username: null  # fill in
+  auth_password: null  # fill in

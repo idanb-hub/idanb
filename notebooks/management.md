@@ -13,9 +13,7 @@ Easy-to-use functions for managing this repository.
 ```python
 from __future__ import annotations
 
-from idanb.nbinit import logger, nbinit, rootdir
-
-nbinit()
+from idanb.nbinit import logger
 ```
 
 ```python
@@ -28,8 +26,11 @@ import typing
 from datetime import UTC, datetime, timedelta, timezone
 
 import pygit2
-import solara
-import solara.lab
+import reacton
+from ipymui import callback
+from ipymui.components import mui
+
+from idanb import meta, ui
 
 if typing.TYPE_CHECKING:
     from pathlib import Path
@@ -72,7 +73,7 @@ async def run(
 # This way we don't have to parse CLI output nor do we have to bother with
 # low-level API functions to mimic what can be done with a simple CLI command.
 
-repo = pygit2.Repository(rootdir)
+repo = pygit2.Repository(meta.rootdir())
 ```
 
 ## Update Project
@@ -127,57 +128,63 @@ def get_upstream_commits() -> list[pygit2.Commit]:
 ```
 
 ```python
-@solara.component
+@reacton.component
 def CommitLog(commits: list[pygit2.Commit]) -> None:  # noqa: N802
-    for commit in commits:
-        solara.Text(commit.message)
+    with mui.Box():
+        for commit in commits:
+            mui.Typography(commit.message)
 ```
 
 ```python
-@solara.lab.task()
-async def fetch() -> datetime:
-    await run("git fetch --verbose --prune", check=True)
-    # Can be observed to know when fetch finished.
-    new_commits()
-    return datetime.now(tz=UTC)
-
-
-@solara.lab.task()
-def new_commits() -> list[pygit2.Commit]:
-    if not is_rebase_safe():
-        errmsg = "cannot update, git reset needed"
-        raise RuntimeError(errmsg)
-    return get_upstream_commits()
+new_commits_global = ui.create_global([])
+repo_timestamp_global = ui.create_global(datetime.now(tz=UTC))
 ```
 
 ```python
-@solara.component
+@reacton.component
 def FetchPage() -> None:  # noqa: N802
-    # Automatically fetch on first render.
-    solara.use_memo(lambda: fetch())
+    with mui.Stack(direction="column", gap=1):
+        new_commits, _ = ui.use_global(new_commits_global)
 
-    solara.Button(
-        label="Check Updates",
-        on_click=fetch,
-        color="primary" if not new_commits.value else "secondary",
-        disabled=fetch.pending,
-    )
+        @ui.use_task()
+        async def fetch() -> None:
+            await run("git fetch --verbose --prune", check=True)
+            repo_timestamp_global.set(datetime.now(tz=UTC))
+            if not is_rebase_safe():
+                errmsg = "cannot update, git reset needed"
+                raise RuntimeError(errmsg)
+            commits = get_upstream_commits()
+            new_commits_global.set(commits)
 
-    solara.ProgressLinear(fetch.pending)
-    if fetch.error:
-        solara.Error(str(fetch.exception or "Error"))
+        # Automatically fetch on first render.
+        reacton.use_memo(lambda: fetch(), dependencies=[])
 
-    if not fetch.finished:
-        return
+        mui.Button(
+            "Check Updates",
+            onClick=lambda: fetch(),
+            variant="contained" if not new_commits else "outlined",
+            disabled=fetch.pending,
+            fullWidth=True,
+        )
 
-    if new_commits.error:
-        solara.Error(str(new_commits.exception or "Error"))
-    elif new_commits.finished:
-        if not new_commits.value:
-            solara.Info("You're up to date!")
+        if fetch.pending:
+            mui.LinearProgress()
+        elif fetch.exception is not None:
+            mui.Alert(str(fetch.exception), severity="error")
+
+        if fetch.result is fetch.NO_RESULT:
+            return
+
+        if not new_commits:
+            mui.Alert("You're up to date!", severity="success")
         else:
-            with solara.Details(f"{len(new_commits.value)} new commits"):
-                CommitLog(new_commits.value)
+            with mui.Accordion():
+                mui.AccordionSummary(
+                    f"{len(new_commits)} new commits",
+                    expandIcon=mui.icons.ExpandMore(),
+                )
+                with mui.AccordionDetails():
+                    CommitLog(new_commits)
 ```
 
 ```python
@@ -200,9 +207,9 @@ STATUS_MESSAGE = {
 }
 
 
-@solara.component
+@reacton.component
 def ChangedFilesList(files: dict[str, pygit2.enums.FileStatus]) -> None:  # noqa: N802
-    with solara.Column(gap="0"):
+    with mui.Stack(direction="column"):
         for file, status in files.items():
             how = next(
                 (msg for mask, msg in STATUS_MESSAGE.items() if status & mask),
@@ -210,21 +217,22 @@ def ChangedFilesList(files: dict[str, pygit2.enums.FileStatus]) -> None:  # noqa
             )
             how += ":"
 
-            solara.Text(
+            mui.Typography(
                 f"{how:12} {file}",
-                style={
-                    "font-family": "monospace",
-                    "white-space": "pre",
-                },
+                sx=dict(
+                    fontFamily="monospace",
+                    whiteSpace="pre",
+                ),
             )
 ```
 
 ```python
-@solara.component
+@reacton.component
 def RestoreDialog(  # noqa: N802
     *,
-    show: solara.Reactive[bool] | bool,
-    then: T.Callable[[], None] = lambda: None,
+    show: bool,
+    on_close: T.Callable[[], None],
+    then: T.Callable[[], None | T.Awaitable[None]] = lambda: None,
 ) -> None:
     """Show confirmation dialog and run `git restore`.
 
@@ -234,69 +242,93 @@ def RestoreDialog(  # noqa: N802
 
     Args:
         show: Whether to show the dialog or not.
+        on_close: Called when dialog should close.
         then: Function to run after changes are reverted.
     """
-    show = solara.use_reactive(show)
+    changes, set_changes = reacton.use_state({})
 
-    changes = solara.use_reactive({})
-
-    if not solara.use_previous(show.get()) and show.get():
-        # Runs once every time dialog is opened (`show` changes to `True`).
-        changes.set(repo.status(untracked_files="no"))
-        if not changes.get():
-            # Skip dialog if there are no changes.
-            show.set(False)
+    def on_changes() -> None:
+        # Skip dialog if there are no changes.
+        if show and not changes:
+            on_close()
             then()
 
-    @solara.lab.use_task(dependencies=None, raise_error=False)
+    reacton.use_effect(on_changes, dependencies=[show, changes])
+
+    if not ui.use_previous(show) and show:
+        # Runs once every time dialog is opened (`show` changes to `True`).
+        set_changes(repo.status(untracked_files="no"))
+
+    @ui.use_task()
     async def restore() -> None:
         # The ":/" is magic pathspec for repository root.
         await run("git restore --staged --worktree :/", check=True)
         then()
 
-    with solara.lab.ConfirmationDialog(
-        title="Revert local changes?",
+    with mui.Dialog(
         open=show,
-        on_ok=restore,
+        onClose=lambda: on_close(),
     ):
-        solara.Text("If you click OK, these changes will be reverted:")
-        ChangedFilesList(changes.get())
+        mui.DialogTitle("Revert local changes?")
+        with mui.DialogContent():
+            mui.Typography("If you click OK, these changes will be reverted:")
+            ChangedFilesList(changes)
+        with mui.DialogActions():
+            mui.Button(
+                "Cancel",
+                onClick=lambda: on_close(),
+            )
+            mui.Button(
+                "Revert",
+                onClick=lambda: restore(),
+                variant="contained",
+            )
 ```
 
 ```python
-@solara.component
+@reacton.component
 def RebasePage() -> None:  # noqa: N802
-    @solara.lab.use_task(dependencies=None, raise_error=False)
-    async def update() -> None:
-        # Rebase targets upstream by default (what we want).
-        await run("git rebase", check=True)
-        new_commits()
-        # Bootstrap script syncs dependencies and notebooks.
-        await run(str(rootdir / "bootstrap.py"), check=True)
+    with mui.Stack(direction="column", gap=1):
+        new_commits, _ = ui.use_global(new_commits_global)
 
-    show_restore_dialog = solara.use_reactive(False)
-    RestoreDialog(
-        show=show_restore_dialog,
-        then=update,
-    )
+        @ui.use_task()
+        async def update() -> None:
+            # Rebase targets upstream by default (what we want).
+            await run("git rebase", check=True)
 
-    solara.Button(
-        label="Update",
-        on_click=lambda: show_restore_dialog.set(True),
-        disabled=update.pending or not new_commits.value,
-        color="primary",
-    )
+            commits = get_upstream_commits()
+            new_commits_global.set(commits)
 
-    solara.ProgressLinear(update.pending)
-    if update.error:
-        solara.Error(str(update.exception or "Error"))
+            # Bootstrap script syncs dependencies and notebooks.
+            await run(str(meta.rootdir() / "bootstrap.py"), check=True)
+
+        dialog_open, set_dialog_open = reacton.use_state(False)
+        RestoreDialog(
+            show=dialog_open,
+            on_close=lambda: set_dialog_open(False),
+            then=update,
+        )
+
+        mui.Button(
+            "Update",
+            onClick=lambda: set_dialog_open(True),
+            disabled=update.pending or not new_commits,
+            variant="contained",
+            fullWidth=True,
+        )
+
+        if update.pending:
+            mui.LinearProgress()
+        if update.exception is not None:
+            mui.Alert(str(update.exception), severity="error")
 ```
 
 ```python
-@solara.component
+@reacton.component
 def UpdatePage() -> None:  # noqa: N802
-    FetchPage()
-    RebasePage()
+    with mui.Stack(direction="column", gap=1):
+        FetchPage()
+        RebasePage()
 
 
 UpdatePage()
@@ -313,6 +345,7 @@ same notebook simultaneously. You can quickly delete leftover duplicates here.
 
 ```python
 def find_files(glob: str, subdir: str | Path = ".") -> T.Iterable[str]:
+    rootdir = meta.rootdir()
     startdir = rootdir / subdir
     return (
         str(path.relative_to(rootdir))
@@ -323,7 +356,7 @@ def find_files(glob: str, subdir: str | Path = ".") -> T.Iterable[str]:
 
 def delete_files(files: T.Iterable[str]) -> T.Iterable[str]:
     for path in files:
-        fullpath = rootdir / path
+        fullpath = meta.rootdir() / path
         try:
             fullpath.unlink(missing_ok=True)
         except OSError:
@@ -334,14 +367,16 @@ def delete_files(files: T.Iterable[str]) -> T.Iterable[str]:
 ```
 
 ```python
-@solara.component
+@reacton.component
 def FindAndDeleteFiles(  # noqa: N802, PLR0913
     *,
     glob: str,
     subdir: str = ".",
-    files: solara.Reactive[dict[str, bool]] | dict[str, bool] | None = None,
+    files: dict[str, bool] | None = None,
+    on_files: T.Callable[[dict[str, bool]], None] | None = None,
     subject: str = "files",
-    pending: solara.Reactive[bool] | None = None,
+    pending: bool = False,
+    on_pending: T.Callable[[bool], None] | None = None,
     disabled: bool = False,
 ) -> None:
     """Component for finding, selecting, and deleting files.
@@ -350,59 +385,67 @@ def FindAndDeleteFiles(  # noqa: N802, PLR0913
         glob: Glob pattern of files to find.
         subdir: Path relative to repository root to search.
         files: Dictionary holding found files and whether they are selected.
+        on_files: Called when `files` should change.
         subject: Human-readable summary of `glob` (shown in UI).
-        pending: Set to `True` while tasks to find or delete files are pending.
+        pending: Whether task to find or delete files is pending.
+        on_pending: Called when `pending` should change.
         disabled: Whether to disable this components' inputs.
     """
-    selected: solara.Reactive[list[str]] = solara.use_reactive([])
-    files = solara.use_reactive(
-        files if files is not None else {},
-        on_change=lambda fs: selected.set([f for f, s in fs.items() if s]),
-    )
+    files, set_files = ui.use_state_from(files or {}, on_files)
 
-    @solara.lab.use_task(dependencies=None, raise_error=False)
-    def find() -> None:
-        files.set(dict.fromkeys(find_files(glob, subdir), True))
+    selected = [f for f, s in files.items() if s]
 
-    @solara.lab.use_task(dependencies=None)
-    def delete() -> None:
-        deleted = set(delete_files(selected.get()))
-        files.set({f: s for f, s in files.get().items() if f not in deleted})
+    @ui.use_task()
+    async def find() -> None:
+        set_files(dict.fromkeys(find_files(glob, subdir), True))
 
-    if pending is None:
-        pending = solara.use_reactive(False)
+    @ui.use_task()
+    async def delete() -> None:
+        deleted = set(delete_files(selected))
+        set_files({f: s for f, s in files.items() if f not in deleted})
 
-    pending.set(find.pending or delete.pending)
+    pending, set_pending = ui.use_state_from(pending, on_pending)
+
+    set_pending(find.pending or delete.pending)
     disabled = disabled or find.pending or delete.pending
 
-    with solara.Row():
-        solara.Button(
-            label=f"Check for {subject}",
-            on_click=find,
-            color="primary",
+    with mui.Stack(direction="row", spacing=1):
+        mui.Button(
+            f"Check for {subject}",
+            onClick=lambda: find(),
+            variant="contained",
             disabled=disabled,
         )
-        solara.Button(
-            label=f"Delete selected {subject}",
-            on_click=delete,
+        mui.Button(
+            f"Delete selected {subject}",
+            onClick=lambda: delete(),
+            variant="contained",
             color="error",
-            disabled=disabled or not selected.get(),
+            disabled=disabled or not selected,
         )
 
     if find.not_called:
         return
 
-    if not files.get():
-        solara.Info(f"No {subject} found")
+    if not files:
+        mui.Alert(f"No {subject} found", severity="info")
     else:
-        solara.SelectMultiple(
+
+        def update_selection(selected: set[str]) -> None:
+            set_files({f: (f in selected) for f in files})
+
+        with mui.Select(
             label=f"Select {subject} to delete",
-            all_values=list(files.get()),
-            # These have wrong type annotations :/
-            values=selected,  # pyright: ignore[reportArgumentType]
-            on_value=None,  # pyright: ignore[reportArgumentType]
+            multiple=True,
             disabled=disabled,
-        )
+            fullWidth=True,
+            value=selected,
+            onChange=callback("$[0].target.value")(
+                lambda value: update_selection(set(value))
+            ),
+        ):
+            for file in files:
+                mui.MenuItem(file, value=file)
 
 
 FindAndDeleteFiles(glob="*-Copy*.*", subject="duplicated files")
@@ -414,7 +457,7 @@ Clear the `data` directory that contains exported data files.
 
 ```python
 def is_file_older_than(path: str | Path, threshold: datetime) -> bool:
-    fullpath = rootdir / path
+    fullpath = meta.rootdir() / path
 
     try:
         stat = fullpath.stat()
@@ -427,18 +470,18 @@ def is_file_older_than(path: str | Path, threshold: datetime) -> bool:
 ```
 
 ```python
-@solara.component
+@reacton.component
 def DeleteData() -> None:  # noqa: N802
-    files: solara.Reactive[dict[str, bool]] = solara.use_reactive({})
-    pending = solara.use_reactive(False)
+    files, set_files = reacton.use_state({})
+    pending, set_pending = reacton.use_state(False)
 
-    @solara.lab.use_task(dependencies=None)
-    def select_old() -> None:
+    @ui.use_task()
+    async def select_old() -> None:
         threshold = datetime.now(tz=UTC) - timedelta(days=7)
-        files.set(
+        set_files(
             {
                 file: is_file_older_than(file, threshold)
-                for file, _ in files.get().items()
+                for file, _ in files.items()
             }
         )
 
@@ -447,15 +490,18 @@ def DeleteData() -> None:  # noqa: N802
         subdir="data",
         subject="data files",
         files=files,
+        on_files=set_files,
         pending=pending,
+        on_pending=set_pending,
         disabled=select_old.pending,
     )
 
-    with solara.Row():
-        solara.Button(
-            label="Select only files older than 7 days",
-            on_click=select_old,
-            disabled=(not files.get() or pending.get() or select_old.pending),
+    with mui.Stack(direction="row", spacing=1):
+        mui.Button(
+            "Select only files older than 7 days",
+            onClick=lambda: select_old(),
+            variant="contained",
+            disabled=(not files or pending or select_old.pending),
         )
 
 
@@ -515,54 +561,62 @@ def get_all_branches(repo: pygit2.Repository) -> list[str]:
 ```
 
 ```python
-@solara.component
+@reacton.component
 def SwitchPage() -> None:  # noqa: N802
-    branches = solara.use_memo(
+    repo_timestamp, _ = ui.use_global(repo_timestamp_global)
+
+    branches = reacton.use_memo(
         lambda: get_all_branches(repo),
         # Recompute after `git fetch`.
-        dependencies=[fetch.latest],
+        dependencies=[repo_timestamp],
     )
 
-    initial_branch = solara.use_memo(lambda: repo.head.shorthand)
-    current_branch = solara.use_reactive(initial_branch)
-    selected_branch = solara.use_reactive(initial_branch)
+    initial_branch = reacton.use_memo(lambda: repo.head.shorthand)
+    current_branch, set_current_branch = reacton.use_state(initial_branch)
+    selected_branch, set_selected_branch = reacton.use_state(initial_branch)
 
-    message = solara.use_reactive("")
+    message, set_message = reacton.use_state("")
 
-    solara.Info(f"Currently on branch: {current_branch}")
+    mui.Alert(f"Currently on branch: {current_branch}")
 
-    @solara.lab.use_task(dependencies=None, raise_error=False)
+    @ui.use_task()
     async def switch() -> None:
-        await run(["git", "switch", selected_branch.get()], check=True)
-        await run(str(rootdir / "bootstrap.py"), check=True)
-        current_branch.set(repo.head.shorthand)
-        message.set(f"Switched to branch '{current_branch.get()}'")
+        await run(["git", "switch", selected_branch], check=True)
+        await run(str(meta.rootdir() / "bootstrap.py"), check=True)
+        set_current_branch(repo.head.shorthand)
+        set_message(f"Switched to branch '{current_branch}'")
 
-    show_restore_dialog = solara.use_reactive(False)
+    dialog_open, set_dialog_open = reacton.use_state(False)
     RestoreDialog(
-        show=show_restore_dialog,
+        show=dialog_open,
+        on_close=lambda: set_dialog_open(False),
         then=switch,
     )
 
-    with solara.Row(style={"align-items": "baseline"}):
-        solara.Select(
+    with mui.Stack(direction="row", spacing=1, alignItems="baseline"):
+        with mui.Select(
             label="Branch",
-            values=branches,
+            fullWidth=True,
             value=selected_branch,
-            on_value=lambda _: message.set(""),
-        )
-        solara.Button(
-            label="Switch",
-            disabled=(selected_branch.get() == current_branch.get()),
-            color="primary",
-            on_click=lambda: show_restore_dialog.set(True),
+            onChange=callback("$[0].target.value")(
+                lambda value: (set_selected_branch(value), set_message("")),
+            ),
+        ):
+            for branch in branches:
+                mui.MenuItem(branch, value=branch)
+        mui.Button(
+            "Switch",
+            disabled=(selected_branch == current_branch),
+            variant="contained",
+            onClick=lambda: set_dialog_open(True),
         )
 
-    solara.ProgressLinear(switch.pending)
-    if switch.error:
-        solara.Error(str(switch.exception or "Error"))
-    if message.get():
-        solara.Info(message.get())
+    if switch.pending:
+        mui.LinearProgress()
+    if switch.exception is not None:
+        mui.Alert(str(switch.exception), severity="error")
+    if message:
+        mui.Alert(message)
 
 
 SwitchPage()
