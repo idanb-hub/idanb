@@ -11,4 +11,3 @@ loggers:
 
   # These are quite noisy.
   reacton: *warning
-  solara: *warning

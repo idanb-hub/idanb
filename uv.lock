@@ -443,11 +443,11 @@ wheels = [
 
 [[package]]
 name = "humanize"
-version = "4.12.2"
+version = "4.15.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/e0/84/ae8e64a6ffe3291105e9688f4e28fa65eba7924e0fe6053d85ca00556385/humanize-4.12.2.tar.gz", hash = "sha256:ce0715740e9caacc982bb89098182cf8ded3552693a433311c6a4ce6f4e12a2c", size = 80871, upload-time = "2025-03-24T17:12:39.167Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ba/66/a3921783d54be8a6870ac4ccffcd15c4dc0dd7fcce51c6d63b8c63935276/humanize-4.15.0.tar.gz", hash = "sha256:1dd098483eb1c7ee8e32eb2e99ad1910baefa4b75c3aff3a82f4d78688993b10", size = 83599, upload-time = "2025-12-20T20:16:13.19Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/55/c7/6f89082f619c76165feb633446bd0fee32b0e0cbad00d22480e5aea26ade/humanize-4.12.2-py3-none-any.whl", hash = "sha256:e4e44dced598b7e03487f3b1c6fd5b1146c30ea55a110e71d5d4bca3e094259e", size = 128305, upload-time = "2025-03-24T17:12:37.059Z" },
+    { url = "https://files.pythonhosted.org/packages/c5/7b/bca5613a0c3b542420cf92bd5e5fb8ebd5435ce1011a091f66bb7693285e/humanize-4.15.0-py3-none-any.whl", hash = "sha256:b1186eb9f5a9749cd9cb8565aee77919dd7c8d076161cf44d70e59e3301e1769", size = 132203, upload-time = "2025-12-20T20:16:11.67Z" },
 ]
 
 [[package]]
@@ -459,6 +459,7 @@ dependencies = [
     { name = "idanb-labconfig" },
     { name = "idanb-lib" },
     { name = "ipykernel" },
+    { name = "ipymui" },
     { name = "ipywidgets" },
     { name = "itables", extra = ["widget"] },
     { name = "jupytext" },
@@ -466,7 +467,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pygit2" },
     { name = "pyyaml" },
-    { name = "solara-ui", extra = ["markdown"] },
+    { name = "reacton" },
     { name = "structlog" },
 ]
 
@@ -489,6 +490,7 @@ requires-dist = [
     { name = "idanb-labconfig", editable = "packages/labconfig" },
     { name = "idanb-lib", editable = "packages/idanb-lib" },
     { name = "ipykernel", specifier = ">=6.29.5" },
+    { name = "ipymui", index = "https://codeberg.org/api/packages/steovd/pypi/simple/" },
     { name = "ipywidgets", specifier = ">=8.1.5" },
     { name = "itables", extras = ["widget"], specifier = ">=2.4.4" },
     { name = "jupyterlab", marker = "extra == 'local'", specifier = ">=4.4.1" },
@@ -498,7 +500,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.10.6" },
     { name = "pygit2", specifier = ">=1.18.2" },
     { name = "pyyaml", specifier = ">=6.0.2" },
-    { name = "solara-ui", extras = ["markdown"], specifier = ">=1.44.1" },
+    { name = "reacton", specifier = ">=1.9.1" },
     { name = "structlog", specifier = ">=25.2.0" },
     { name = "voila", marker = "extra == 'local'", specifier = ">=0.5.8" },
 ]
@@ -521,16 +523,19 @@ version = "0.1.0"
 source = { editable = "packages/idanb-lib" }
 dependencies = [
     { name = "anywidget" },
+    { name = "humanize" },
     { name = "ipykernel" },
+    { name = "ipymui" },
     { name = "ipython" },
     { name = "itables", extra = ["widget"] },
     { name = "perspective-python" },
     { name = "polars", extra = ["pyarrow"] },
     { name = "pydantic" },
     { name = "pyyaml" },
+    { name = "reacton" },
     { name = "service-connectors-v2", extra = ["intelowl", "trino"] },
-    { name = "solara-ui", extra = ["markdown"] },
     { name = "structlog" },
+    { name = "watchdog" },
 ]
 
 [package.dev-dependencies]
@@ -541,16 +546,19 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "anywidget", specifier = ">=0.9.21" },
+    { name = "humanize", specifier = ">=4.15.0" },
     { name = "ipykernel", specifier = ">=7.1.0" },
+    { name = "ipymui", index = "https://codeberg.org/api/packages/steovd/pypi/simple/" },
     { name = "ipython", specifier = ">=9.9.0" },
     { name = "itables", extras = ["widget"], specifier = ">=2.6.2" },
     { name = "perspective-python", specifier = ">=4.0.1" },
     { name = "polars", extras = ["pyarrow"], specifier = ">=1.37.0" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "pyyaml", specifier = ">=6.0.3" },
+    { name = "reacton", specifier = ">=1.9.1" },
     { name = "service-connectors-v2", extras = ["intelowl", "trino"], git = "https://github.com/idanb-hub/service-connectors.git" },
-    { name = "solara-ui", extras = ["markdown"], specifier = ">=1.56.0" },
     { name = "structlog", specifier = ">=25.5.0" },
+    { name = "watchdog", specifier = ">=6.0.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -599,6 +607,19 @@ wheels = [
 ]
 
 [[package]]
+name = "ipymui"
+version = "0.1.dev41+ge53cf7340.d20260218"
+source = { registry = "https://codeberg.org/api/packages/steovd/pypi/simple/" }
+dependencies = [
+    { name = "anywidget" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://codeberg.org/api/packages/steovd/pypi/files/ipymui/0.1.dev41+ge53cf7340.d20260218/ipymui-0.1.dev41+ge53cf7340.d20260218.tar.gz", hash = "sha256:2641fc13a34fe8ba6b9a0f6820b94086a381ef3af3f9edf343c74bdc871786f8" }
+wheels = [
+    { url = "https://codeberg.org/api/packages/steovd/pypi/files/ipymui/0.1.dev41+ge53cf7340.d20260218/ipymui-0.1.dev41+ge53cf7340.d20260218-py3-none-any.whl", hash = "sha256:3773aba531398d14f9f04041c530846cdb740a4f87132982bf5d610fab6cb6a1" },
+]
+
+[[package]]
 name = "ipython"
 version = "9.9.0"
 source = { registry = "https://pypi.org/simple" }
@@ -629,30 +650,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/ef/4c/5dd1d8af08107f88c7f741ead7a40854b8ac24ddf9ae850afbcf698aa552/ipython_pygments_lexers-1.1.1.tar.gz", hash = "sha256:09c0138009e56b6854f9535736f4171d855c8c08a563a0dcd8022f78355c7e81", size = 8393, upload-time = "2025-01-17T11:24:34.505Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d9/33/1f075bf72b0b747cb3288d011319aaf64083cf2efef8354174e3ed4540e2/ipython_pygments_lexers-1.1.1-py3-none-any.whl", hash = "sha256:a9462224a505ade19a605f71f8fa63c2048833ce50abc86768a0d81d876dc81c", size = 8074, upload-time = "2025-01-17T11:24:33.271Z" },
-]
-
-[[package]]
-name = "ipyvue"
-version = "1.11.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "ipywidgets" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/f8/c7/fc11a2b3e9114190504a18d0e661230de2ea165f0a47ab835c69e86a40ef/ipyvue-1.11.2.tar.gz", hash = "sha256:3b1381bd120184f970a5d66deac33b8592a666c8e1ab7a5afd33ecff342e0a95", size = 1741459, upload-time = "2024-11-14T12:45:24.94Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/0a/c5/226ff8aaf6248edf16246498d7885805e2c8b122631ac133130b0612b1ad/ipyvue-1.11.2-py2.py3-none-any.whl", hash = "sha256:e009efa97ec223c4833a6c8ef3a473385d767ff69518ff94f107400517333353", size = 2666202, upload-time = "2024-11-14T12:45:22.624Z" },
-]
-
-[[package]]
-name = "ipyvuetify"
-version = "1.11.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "ipyvue" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/24/c8/b2046fa71f3872846934ffae9cfce1ef18379f431c1af20ce022a657feef/ipyvuetify-1.11.1.tar.gz", hash = "sha256:be8003e99ad42f6563c778cc60408484fb5d7dfb17952b94db05aedd2f0da18b", size = 7587552, upload-time = "2025-02-27T16:09:51.531Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/59/a9/9a156fd53c9939f753a6858a0ec3a28c8264f383a2dd7ace5debd39182c4/ipyvuetify-1.11.1-py2.py3-none-any.whl", hash = "sha256:c1d018d994cc670c3c9804b3d75f377da28e3beb54dfcd7d39dcdbe867def69e", size = 7701528, upload-time = "2025-02-27T16:09:48.528Z" },
 ]
 
 [[package]]
@@ -1006,15 +1003,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/f7/da/137ddeea14c2cb86864838277b2607d09f8253f152156a07f84e11768a28/lz4-4.4.5-cp314-cp314-win32.whl", hash = "sha256:bd85d118316b53ed73956435bee1997bd06cc66dd2fa74073e3b1322bd520a67", size = 90139, upload-time = "2025-11-03T13:02:24.301Z" },
     { url = "https://files.pythonhosted.org/packages/18/2c/8332080fd293f8337779a440b3a143f85e374311705d243439a3349b81ad/lz4-4.4.5-cp314-cp314-win_amd64.whl", hash = "sha256:92159782a4502858a21e0079d77cdcaade23e8a5d252ddf46b0652604300d7be", size = 101497, upload-time = "2025-11-03T13:02:25.187Z" },
     { url = "https://files.pythonhosted.org/packages/ca/28/2635a8141c9a4f4bc23f5135a92bbcf48d928d8ca094088c962df1879d64/lz4-4.4.5-cp314-cp314-win_arm64.whl", hash = "sha256:d994b87abaa7a88ceb7a37c90f547b8284ff9da694e6afcfaa8568d739faf3f7", size = 93812, upload-time = "2025-11-03T13:02:26.133Z" },
-]
-
-[[package]]
-name = "markdown"
-version = "3.7"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/54/28/3af612670f82f4c056911fbbbb42760255801b3068c48de792d354ff4472/markdown-3.7.tar.gz", hash = "sha256:2ae2471477cfd02dbbf038d5d9bc226d40def84b4fe2986e49b59b6b472bbed2", size = 357086, upload-time = "2024-08-16T15:55:17.812Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/3f/08/83871f3c50fc983b88547c196d11cf8c3340e37c32d2e9d6152abe2c61f7/Markdown-3.7-py3-none-any.whl", hash = "sha256:7eb6df5690b81a1d7942992c97fad2938e956e79df20cbc6186e9c3a77b1c803", size = 106349, upload-time = "2024-08-16T15:55:16.176Z" },
 ]
 
 [[package]]
@@ -1615,19 +1603,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pymdown-extensions"
-version = "10.14.3"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "markdown" },
-    { name = "pyyaml" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/7c/44/e6de2fdc880ad0ec7547ca2e087212be815efbc9a425a8d5ba9ede602cbb/pymdown_extensions-10.14.3.tar.gz", hash = "sha256:41e576ce3f5d650be59e900e4ceff231e0aed2a88cf30acaee41e02f063a061b", size = 846846, upload-time = "2025-02-01T15:43:15.42Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/eb/f5/b9e2a42aa8f9e34d52d66de87941ecd236570c7ed2e87775ed23bbe4e224/pymdown_extensions-10.14.3-py3-none-any.whl", hash = "sha256:05e0bee73d64b9c71a4ae17c72abc2f700e8bc8403755a00580b49a4e9f189e9", size = 264467, upload-time = "2025-02-01T15:43:13.995Z" },
-]
-
-[[package]]
 name = "python-dateutil"
 version = "2.9.0.post0"
 source = { registry = "https://pypi.org/simple" }
@@ -1960,30 +1935,6 @@ wheels = [
 ]
 
 [[package]]
-name = "solara-ui"
-version = "1.56.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "humanize" },
-    { name = "ipyvue" },
-    { name = "ipyvuetify" },
-    { name = "ipywidgets" },
-    { name = "reacton" },
-    { name = "requests" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/46/75/b08ed19d7f99df68d95b982f828c69f9587d5f798841eaaaa98b37ed3184/solara_ui-1.56.0.tar.gz", hash = "sha256:17476c38c7e785480354028dda315a83fbfe524a0bc695913f7e8df3bb3a5c51", size = 1260151, upload-time = "2025-12-22T20:32:57.653Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/13/2e/59fd8ed7bf7779e74a2620c0b4227aba1a114566422936b3e1c969aa2965/solara_ui-1.56.0-py3-none-any.whl", hash = "sha256:a0c6b066eb8e8c687c444c063d179d803540b6ba34b9b4cc12cddedd5e41a819", size = 1308338, upload-time = "2025-12-22T20:32:59.358Z" },
-]
-
-[package.optional-dependencies]
-markdown = [
-    { name = "markdown" },
-    { name = "pygments" },
-    { name = "pymdown-extensions" },
-]
-
-[[package]]
 name = "soupsieve"
 version = "2.7"
 source = { registry = "https://pypi.org/simple" }
@@ -2195,6 +2146,30 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/de/9e/e9c14c97507d1724779cbd7bf282c11c0be8b05e6e83f9f54607a2ebd8ed/voila-0.5.8.tar.gz", hash = "sha256:3d9078c252a8b1f3fe58d465749d31cdc241b29c8f4ab77f123be35a17e2da95", size = 5344487, upload-time = "2024-10-18T10:08:59.431Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7a/fc/ebc74e04619f84200df9ab029be6aeeab6ae3b82ec3e97c177d83839383d/voila-0.5.8-py3-none-any.whl", hash = "sha256:7cdb1f0629a2e9c11f0c07e7d386f3b7cc5441f584dc9b8030d08a82e5c09063", size = 4511252, upload-time = "2024-10-18T10:08:56.464Z" },
+]
+
+[[package]]
+name = "watchdog"
+version = "6.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/db/7d/7f3d619e951c88ed75c6037b246ddcf2d322812ee8ea189be89511721d54/watchdog-6.0.0.tar.gz", hash = "sha256:9ddf7c82fda3ae8e24decda1338ede66e1c99883db93711d8fb941eaa2d8c282", size = 131220, upload-time = "2024-11-01T14:07:13.037Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/39/ea/3930d07dafc9e286ed356a679aa02d777c06e9bfd1164fa7c19c288a5483/watchdog-6.0.0-cp312-cp312-macosx_10_13_universal2.whl", hash = "sha256:bdd4e6f14b8b18c334febb9c4425a878a2ac20efd1e0b231978e7b150f92a948", size = 96471, upload-time = "2024-11-01T14:06:37.745Z" },
+    { url = "https://files.pythonhosted.org/packages/12/87/48361531f70b1f87928b045df868a9fd4e253d9ae087fa4cf3f7113be363/watchdog-6.0.0-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:c7c15dda13c4eb00d6fb6fc508b3c0ed88b9d5d374056b239c4ad1611125c860", size = 88449, upload-time = "2024-11-01T14:06:39.748Z" },
+    { url = "https://files.pythonhosted.org/packages/5b/7e/8f322f5e600812e6f9a31b75d242631068ca8f4ef0582dd3ae6e72daecc8/watchdog-6.0.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:6f10cb2d5902447c7d0da897e2c6768bca89174d0c6e1e30abec5421af97a5b0", size = 89054, upload-time = "2024-11-01T14:06:41.009Z" },
+    { url = "https://files.pythonhosted.org/packages/68/98/b0345cabdce2041a01293ba483333582891a3bd5769b08eceb0d406056ef/watchdog-6.0.0-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:490ab2ef84f11129844c23fb14ecf30ef3d8a6abafd3754a6f75ca1e6654136c", size = 96480, upload-time = "2024-11-01T14:06:42.952Z" },
+    { url = "https://files.pythonhosted.org/packages/85/83/cdf13902c626b28eedef7ec4f10745c52aad8a8fe7eb04ed7b1f111ca20e/watchdog-6.0.0-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:76aae96b00ae814b181bb25b1b98076d5fc84e8a53cd8885a318b42b6d3a5134", size = 88451, upload-time = "2024-11-01T14:06:45.084Z" },
+    { url = "https://files.pythonhosted.org/packages/fe/c4/225c87bae08c8b9ec99030cd48ae9c4eca050a59bf5c2255853e18c87b50/watchdog-6.0.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:a175f755fc2279e0b7312c0035d52e27211a5bc39719dd529625b1930917345b", size = 89057, upload-time = "2024-11-01T14:06:47.324Z" },
+    { url = "https://files.pythonhosted.org/packages/a9/c7/ca4bf3e518cb57a686b2feb4f55a1892fd9a3dd13f470fca14e00f80ea36/watchdog-6.0.0-py3-none-manylinux2014_aarch64.whl", hash = "sha256:7607498efa04a3542ae3e05e64da8202e58159aa1fa4acddf7678d34a35d4f13", size = 79079, upload-time = "2024-11-01T14:06:59.472Z" },
+    { url = "https://files.pythonhosted.org/packages/5c/51/d46dc9332f9a647593c947b4b88e2381c8dfc0942d15b8edc0310fa4abb1/watchdog-6.0.0-py3-none-manylinux2014_armv7l.whl", hash = "sha256:9041567ee8953024c83343288ccc458fd0a2d811d6a0fd68c4c22609e3490379", size = 79078, upload-time = "2024-11-01T14:07:01.431Z" },
+    { url = "https://files.pythonhosted.org/packages/d4/57/04edbf5e169cd318d5f07b4766fee38e825d64b6913ca157ca32d1a42267/watchdog-6.0.0-py3-none-manylinux2014_i686.whl", hash = "sha256:82dc3e3143c7e38ec49d61af98d6558288c415eac98486a5c581726e0737c00e", size = 79076, upload-time = "2024-11-01T14:07:02.568Z" },
+    { url = "https://files.pythonhosted.org/packages/ab/cc/da8422b300e13cb187d2203f20b9253e91058aaf7db65b74142013478e66/watchdog-6.0.0-py3-none-manylinux2014_ppc64.whl", hash = "sha256:212ac9b8bf1161dc91bd09c048048a95ca3a4c4f5e5d4a7d1b1a7d5752a7f96f", size = 79077, upload-time = "2024-11-01T14:07:03.893Z" },
+    { url = "https://files.pythonhosted.org/packages/2c/3b/b8964e04ae1a025c44ba8e4291f86e97fac443bca31de8bd98d3263d2fcf/watchdog-6.0.0-py3-none-manylinux2014_ppc64le.whl", hash = "sha256:e3df4cbb9a450c6d49318f6d14f4bbc80d763fa587ba46ec86f99f9e6876bb26", size = 79078, upload-time = "2024-11-01T14:07:05.189Z" },
+    { url = "https://files.pythonhosted.org/packages/62/ae/a696eb424bedff7407801c257d4b1afda455fe40821a2be430e173660e81/watchdog-6.0.0-py3-none-manylinux2014_s390x.whl", hash = "sha256:2cce7cfc2008eb51feb6aab51251fd79b85d9894e98ba847408f662b3395ca3c", size = 79077, upload-time = "2024-11-01T14:07:06.376Z" },
+    { url = "https://files.pythonhosted.org/packages/b5/e8/dbf020b4d98251a9860752a094d09a65e1b436ad181faf929983f697048f/watchdog-6.0.0-py3-none-manylinux2014_x86_64.whl", hash = "sha256:20ffe5b202af80ab4266dcd3e91aae72bf2da48c0d33bdb15c66658e685e94e2", size = 79078, upload-time = "2024-11-01T14:07:07.547Z" },
+    { url = "https://files.pythonhosted.org/packages/07/f6/d0e5b343768e8bcb4cda79f0f2f55051bf26177ecd5651f84c07567461cf/watchdog-6.0.0-py3-none-win32.whl", hash = "sha256:07df1fdd701c5d4c8e55ef6cf55b8f0120fe1aef7ef39a1c6fc6bc2e606d517a", size = 79065, upload-time = "2024-11-01T14:07:09.525Z" },
+    { url = "https://files.pythonhosted.org/packages/db/d9/c495884c6e548fce18a8f40568ff120bc3a4b7b99813081c8ac0c936fa64/watchdog-6.0.0-py3-none-win_amd64.whl", hash = "sha256:cbafb470cf848d93b5d013e2ecb245d4aa1c8fd0504e863ccefa32445359d680", size = 79070, upload-time = "2024-11-01T14:07:10.686Z" },
+    { url = "https://files.pythonhosted.org/packages/33/e8/e40370e6d74ddba47f002a32919d91310d6074130fe4e17dabcafc15cbf1/watchdog-6.0.0-py3-none-win_ia64.whl", hash = "sha256:a1914259fa9e1454315171103c6a30961236f508b9b623eae470268bbcc6a22f", size = 79067, upload-time = "2024-11-01T14:07:11.845Z" },
 ]
 
 [[package]]

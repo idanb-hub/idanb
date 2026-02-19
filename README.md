@@ -47,3 +47,7 @@ documented.
 User-specific configuration goes in `config.yaml`.
 This includes credentials to services without which notebooks won't work.
 You can use [`config.example.yaml`](./config.example.yaml) as a starting point.
+
+## Development
+
+See [DEVELOP.md](./DEVELOP.md).

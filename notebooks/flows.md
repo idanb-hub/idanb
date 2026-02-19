@@ -1,13 +1,10 @@
 ```python
 from __future__ import annotations
 
-from idanb.nbinit import logger, nbinit, rootdir
-
-nbinit()
+from idanb.nbinit import logger
 ```
 
 ```python
-import asyncio
 import contextlib
 import functools
 import ipaddress
@@ -15,14 +12,16 @@ import itertools
 import re
 import textwrap
 import typing
+import uuid
 from datetime import UTC, datetime, timedelta
 
-import solara
-import solara.lab
+import reacton
+from ipymui import JavaScript, callback
+from ipymui.components import mui
 
-from idanb import components, utils, widgets
-from idanb.infrastructure.data_platform import DataPlatform, QueryProgress
-from idanb.nbcommon import queries
+from idanb import meta, ui, utils
+from idanb.core import queries
+from idanb.infra.data_platform import DataPlatform, QueryProgress
 
 if typing.TYPE_CHECKING:
     import typing_extensions as T
@@ -134,257 +133,384 @@ where_protocol = functools.partial(
 ```
 
 ```python
-@typing.final
-class QueryStore:
-    def __init__(self) -> None:
-        self.src_addr = solara.reactive(queries.Query(""))
-        self.dst_addr = solara.reactive(queries.Query(""))
-        self.src_port = solara.reactive(queries.Query(""))
-        self.dst_port = solara.reactive(queries.Query(""))
-        self.mirror = solara.reactive(False)
+class QueryState(typing.TypedDict):
+    src_addr: queries.Query
+    dst_addr: queries.Query
+    src_port: queries.Query
+    dst_port: queries.Query
+    mirror: bool
+    start_time: datetime
+    end_time: datetime
+    protocols: queries.Query
+    probes: list[str]
+    view: str
+    geoip: bool
+    limit: int
+    custom_condition: str
 
-        self.end_time = solara.reactive(datetime.now().astimezone())
-        self.start_time = solara.reactive(
-            self.end_time.peek() - timedelta(minutes=5)
-        )
 
-        self.protocols = solara.reactive(queries.Query(""))
-        self.probes = solara.reactive(list(queries.data.PROBES.keys())[:1])
+def make_query(state: QueryState) -> queries.Query:
+    conditions = [
+        # Mirrored conditions first.
+        state["src_addr"],
+        state["src_port"],
+        state["dst_addr"],
+        state["dst_port"],
+    ]
 
-        self.view = solara.reactive("basic")
-        self.geoip = solara.reactive(True)
-
-        self.limit: solara.Reactive[int] = solara.reactive(10000)
-
-        self.custom_condition = solara.reactive("")
-
-        self.query = solara.lab.computed(self._query)
-
-    def _query(self) -> queries.Query:
+    if state["mirror"]:
         conditions = [
-            # Mirrored conditions first.
-            self.src_addr.get(),
-            self.src_port.get(),
-            self.dst_addr.get(),
-            self.dst_port.get(),
+            queries.Query.any(
+                [
+                    queries.Query.all(conditions),
+                    queries.Query.all(conditions).transform(
+                        utils.parse.substr_swap,
+                        left="iana__source",
+                        right="iana__destination",
+                    ),
+                ]
+            ),
         ]
 
-        if self.mirror.get():
-            conditions = [
-                queries.Query.any(
-                    [
-                        queries.Query.all(conditions),
-                        queries.Query.all(conditions).transform(
-                            utils.parse.substr_swap,
-                            left="iana__source",
-                            right="iana__destination",
-                        ),
-                    ]
-                ),
-            ]
+    # Now add non-mirrorred conditions.
+    conditions.extend(
+        [
+            state["protocols"],
+        ]
+    )
 
-        # Now add non-mirrorred conditions.
-        conditions.extend(
-            [
-                self.protocols.get(),
-            ]
-        )
-
-        return queries.Query(
-            textwrap.dedent("""\
-            SELECT
-            {columns:SQL}
-            FROM ipfix
-            LEFT JOIN geoip_country_locations as geoip_src
-                ON cast(geoip_src.geoname_id AS VARCHAR) = ipfix.correlation00
-            LEFT JOIN geoip_country_locations as geoip_dst
-                ON cast(geoip_dst.geoname_id AS VARCHAR) = ipfix.correlation01
-            WHERE
-              (ts BETWEEN {time_start} AND {time_end})
-              AND ({conditions:SQL})  -- conditions
-              AND contains(transform({probes}, ip -> cast(ip AS IPADDRESS)), ipfix__srcaddr)
-              AND ({where_custom:SQL})  -- custom
-            LIMIT {limit}
-            """),
-            columns=textwrap.indent(
-                queries.view(self.view.get(), geoip=self.geoip.get()),
-                "  ",
+    return queries.Query(
+        textwrap.dedent("""\
+        SELECT
+        {columns:SQL}
+        FROM ipfix
+        LEFT JOIN geoip_country_locations as geoip_src
+            ON cast(geoip_src.geoname_id AS VARCHAR) = ipfix.correlation00
+        LEFT JOIN geoip_country_locations as geoip_dst
+            ON cast(geoip_dst.geoname_id AS VARCHAR) = ipfix.correlation01
+        WHERE
+          (ts BETWEEN {time_start} AND {time_end})
+          AND ({conditions:SQL})  -- conditions
+          AND contains(transform({probes}, ip -> cast(ip AS IPADDRESS)), ipfix__srcaddr)
+          AND ({where_custom:SQL})  -- custom
+        LIMIT {limit}
+        """),
+        columns=textwrap.indent(
+            queries.view(state["view"], geoip=state["geoip"]),
+            "  ",
+        ),
+        time_start=state["start_time"].astimezone(UTC),
+        time_end=state["end_time"].astimezone(UTC),
+        conditions=queries.Query.all(conditions),
+        probes=list(
+            itertools.chain.from_iterable(
+                queries.data.PROBES[probe] for probe in state["probes"]
             ),
-            time_start=self.start_time.get().astimezone(UTC),
-            time_end=self.end_time.get().astimezone(UTC),
-            conditions=queries.Query.all(conditions),
-            probes=list(
-                itertools.chain.from_iterable(
-                    queries.data.PROBES[probe] for probe in self.probes.get()
-                ),
-            ),
-            where_custom=self.custom_condition.get() or "TRUE",
-            limit=self.limit.get(),
-        )
+        ),
+        where_custom=state["custom_condition"] or "TRUE",
+        limit=state["limit"],
+    )
 ```
 
 ```python
-table = widgets.PerspectiveWidget(data=None)
+table = ui.widgets.PerspectiveWidget(data=None)
 
 
-@solara.component
-def QueryForm() -> None:  # noqa: N802
-    store = solara.use_memo(lambda: QueryStore())
+@reacton.component
+def QueryForm() -> None:  # noqa: N802 C901 PLR0915
+    now = reacton.use_memo(lambda: datetime.now().astimezone())
+    state, set_state = reacton.use_state(
+        QueryState(
+            src_addr=queries.Query(""),
+            dst_addr=queries.Query(""),
+            src_port=queries.Query(""),
+            dst_port=queries.Query(""),
+            mirror=False,
+            end_time=now,
+            start_time=(now - timedelta(minutes=5)),
+            protocols=queries.Query(""),
+            probes=[next(iter(queries.data.PROBES))],
+            view="basic",
+            geoip=True,
+            limit=10000,
+            custom_condition="",
+        ),
+    )
 
-    with solara.Column(gap="0px"):
-        with solara.Row():
-            components.InputParsed(
+    with mui.Grid(
+        container=True,
+        spacing=1,
+        # Otherwise things get cut off.
+        padding=1,
+    ):
+        with mui.Grid(size=7):
+            ui.ParsedField(
                 label="Source address",
-                value=store.src_addr,
+                value=state["src_addr"],
+                on_value=lambda value: set_state({**state, "src_addr": value}),
                 parser=where_src_target,
-                init="",
-                style="flex: 3",
+                init_value="",
+                fullWidth=True,
             )
 
-            components.InputParsed(
+        with mui.Grid(size=5):
+            ui.ParsedField(
                 label="Source port",
-                value=store.src_port,
+                value=state["src_port"],
+                on_value=lambda value: set_state({**state, "src_port": value}),
                 parser=where_src_port,
-                init="",
-                style="flex: 2",
+                init_value="",
+                fullWidth=True,
             )
 
-        with solara.Row():
-            components.InputParsed(
+        with mui.Grid(size=7):
+            ui.ParsedField(
                 label="Destination address",
-                value=store.dst_addr,
+                value=state["dst_addr"],
+                on_value=lambda value: set_state({**state, "dst_addr": value}),
                 parser=where_dst_target,
-                init="",
-                style="flex: 3",
+                init_value="",
+                fullWidth=True,
             )
 
-            components.InputParsed(
+        with mui.Grid(size=5):
+            ui.ParsedField(
                 label="Destination port",
-                value=store.dst_port,
+                value=state["dst_port"],
+                on_value=lambda value: set_state({**state, "dst_port": value}),
                 parser=where_dst_port,
-                init="",
-                style="flex: 2",
+                init_value="",
+                fullWidth=True,
             )
 
-        with solara.Row():
-            solara.Switch(
+        with mui.Grid(size=12):
+            mui.FormControlLabel(
                 label="Include flows in opposite direction",
-                value=store.mirror,
+                control=mui.Switch(
+                    checked=state["mirror"],
+                    onChange=callback("$[0].target.checked")(
+                        lambda v: set_state({**state, "mirror": v}),
+                    ),
+                ),
             )
 
-        with solara.Row():
-            components.InputParsed(
+        mui.Grid(size=12, sx=dict(margin=1))
+
+        with mui.Grid(size=3):
+            ui.ParsedField(
                 label="Protocols",
-                value=store.protocols,
+                value=state["protocols"],
+                on_value=lambda value: set_state({**state, "protocols": value}),
                 parser=where_protocol,
-                init="tcp udp",
+                init_value="tcp udp",
+                fullWidth=True,
             )
-            solara.SelectMultiple(
+
+        with mui.Grid(size=3), mui.FormControl(fullWidth=True):
+            mui.InputLabel("Probes")
+            with mui.Select(
                 label="Probes",
-                values=store.probes,  # pyright: ignore[reportArgumentType]
-                all_values=list(queries.data.PROBES.keys()),
-                on_value=lambda _: None,  # default conflicts with type annotations
-                style="width: 20em",
-            )
-            components.InputDateTime(
-                value=store.start_time,
+                multiple=True,
+                value=state["probes"],
+                onChange=callback("$[0].target.value")(
+                    lambda v: set_state({**state, "probes": v}),
+                ),
+            ):
+                for probe in queries.data.PROBES:
+                    mui.MenuItem(probe, value=probe)
+
+        with mui.Grid(size=3):
+            mui.date_pickers.DateTimePicker(
                 label="Start time",
-                style="max-width: 20em",
-            )
-            components.InputDateTime(
-                value=store.end_time,
-                label="End time",
-                style="max-width: 20em",
+                value=state["start_time"],
+                onChange=lambda value: set_state(
+                    {**state, "start_time": datetime.fromisoformat(value)},
+                ),
+                sx=dict(width="100%"),
             )
 
-        solara.InputTextArea(
-            label="Custom Condition",
-            value=store.custom_condition,
-            rows=1,
-        )
+        with mui.Grid(size=3):
+            mui.date_pickers.DateTimePicker(
+                label="Start time",
+                value=state["end_time"],
+                onChange=lambda value: set_state(
+                    {**state, "end_time": datetime.fromisoformat(value)},
+                ),
+                sx=dict(width="100%"),
+            )
 
-        with solara.Row():
-            solara.Select(
+        with mui.Grid(size=12):
+            mui.TextField(
+                label="Custom Condition",
+                rows=1,
+                multiline=True,
+                onBlur=callback("$[0].target.value")(
+                    lambda v: set_state({**state, "custom_condition": v}),
+                ),
+                fullWidth=True,
+            )
+
+        mui.Grid(size=12, sx=dict(margin=1))
+
+        with mui.Grid(size=3), mui.FormControl(fullWidth=True):
+            mui.InputLabel("View")
+            with mui.Select(
                 label="View",
-                value=store.view,
-                values=list(queries.views()),
-                style="flex: 1",
-            )
-            solara.Switch(
+                value=state["view"],
+                onChange=callback("$[0].target.value")(
+                    lambda value: set_state({**state, "view": value}),
+                ),
+                sx=dict(
+                    flex=1,
+                ),
+            ):
+                for view in queries.views():
+                    mui.MenuItem(view, value=view)
+
+        with mui.Grid(size=3, alignSelf="center"):
+            mui.FormControlLabel(
                 label="GeoIP",
-                value=store.geoip,
-                style="flex: 1",
-            )
-            solara.InputInt(
-                label="Limit",
-                value=store.limit,
-                style="flex: 1",
+                control=mui.Switch(
+                    checked=state["geoip"],
+                    onChange=callback("$[0].target.checked")(
+                        lambda v: set_state({**state, "geoip": v}),
+                    ),
+                ),
             )
 
-        progress: solara.Reactive[QueryProgress | None] = solara.use_reactive(
-            None
+        with mui.Grid(size=3):
+            mui.TextField(
+                label="Limit",
+                type="number",
+                value=state["limit"],
+                onChange=callback("$[0].target.value")(
+                    lambda v: set_state({**state, "limit": v}),
+                ),
+                sx=dict(
+                    flex=1,
+                ),
+            )
+
+        query = make_query(state)
+
+        progress, set_progress = reacton.use_state(
+            typing.cast("QueryProgress | None", None)
         )
 
-        @solara.lab.use_task(dependencies=None, raise_error=False)
+        @ui.use_task()
         async def get_flows() -> None:
             try:
-                progress.set(None)
-                logger.info("executing query", query=store.query.get())
+                set_progress(None)
+                logger.info("executing query", query=query)
                 flows = await dp.execute(
-                    *store.query.get(),
-                    on_progress=lambda p: progress.set(p),
+                    *query,
+                    on_progress=lambda p: set_progress(p),
                 )
                 table.load(flows)
-            except asyncio.CancelledError:
-                pass
             finally:
-                progress.set(None)
+                set_progress(None)
 
-        components.TaskButton(
-            task=get_flows,
-            label="Get Flows",
-            color="primary",
-            if_pending={
-                "label": "Cancel",
-                "color": "error",
-            },
-        )
+        mui.Grid(size=12, sx=dict(margin=1))
 
-        with solara.Details("SQL Query"):
-            solara.Text(
-                "\n".join(map(str, store.query.get())),
-                style="font-family: monospace; white-space: pre-wrap;",
+        menu_open, set_menu_open = reacton.use_state(False)
+        query_open, set_query_open = reacton.use_state(False)
+
+        with mui.Grid(size="grow"):
+            mui.Button(
+                "Get Flows" if not get_flows.pending else "Cancel",
+                onClick=lambda: (
+                    get_flows() if not get_flows.pending else get_flows.cancel()
+                ),
+                variant="contained",
+                fullWidth=True,
+                size="large",
+                color="primary" if not get_flows.pending else "error",
             )
 
-        if get_flows.exception is not None:
-            solara.Error(str(get_flows.exception))
-        elif (p := progress.get()) is not None:
-            solara.ProgressLinear(p.progress)
-            components.Link(f"{p.state}: {int(p.progress)} %", url=p.url)
-        elif get_flows.pending:
-            solara.ProgressLinear(value=True)
-            solara.Text("SUBMITTING")
+        with mui.Grid(size="auto", alignSelf="center"):
+            anchor_id = reacton.use_memo(lambda: f"x{uuid.uuid4().hex}")
 
-        if get_flows.finished:
-            solara.display(table)
+            with mui.IconButton(
+                variant="contained",
+                id=anchor_id,
+                onClick=lambda: set_menu_open(True),
+            ):
+                mui.icons.MoreVert()
+
+            with mui.Menu(
+                open=menu_open,
+                anchorEl=JavaScript(f"document.querySelector('#{anchor_id}')"),
+                onClose=lambda: set_menu_open(False),
+            ):
+                mui.MenuItem(
+                    "Show SQL Query",
+                    onClick=lambda: (
+                        set_query_open(True),
+                        set_menu_open(False),
+                    ),
+                )
+
+            with mui.Dialog(
+                open=query_open,
+                onClose=lambda: set_query_open(False),
+                fullWidth=True,
+                maxWidth=False,
+            ):
+                mui.DialogTitle("SQL Query")
+                with mui.DialogContent():
+                    mui.Typography(
+                        "\n".join(map(str, query)),
+                        variant="body2",
+                        sx=dict(
+                            fontFamily="monospace",
+                            whiteSpace="pre-wrap",
+                        ),
+                    )
+                with mui.DialogActions():
+                    mui.Button("Close", onClick=lambda: set_query_open(False))
+
+    match get_flows.status:
+        case get_flows.NotCalled():
+            pass
+        case get_flows.Pending():
+            if progress is None:
+                mui.LinearProgress()
+                mui.Typography("SUBMITTING")
+            else:
+                mui.LinearProgress(
+                    variant="determinate",
+                    value=progress.progress,
+                )
+                mui.Link(
+                    f"{progress.state}: {int(progress.progress)} %",
+                    href=progress.url,
+                    underline="none",
+                )
+        case get_flows.Exception(exception):
+            mui.Alert(str(exception), severity="error")
+        case get_flows.Result():
+            display(table)
+        case get_flows.Cancelled():
+            if table.table is not None:
+                display(table)
 
 
 QueryForm()
 ```
 
 ```python
-from idanb.nbcommon.observable_analysis import IntelOwl_ObservableAnalysis
-from idanb.nbcommon.observable_analysis.analyzers import ALL_ANALYZERS
+from idanb.core.observable_analysis import IntelOwl_ObservableAnalysis
+from idanb.core.observable_analysis.analyzers import ALL_ANALYZERS
 
 IntelOwl_ObservableAnalysis(analyzers=ALL_ANALYZERS)
 ```
 
 ```python
-from idanb.nbcommon.save_table import SaveTablePage
+from idanb.core.save_table import SaveTablePage
 
 SaveTablePage(
     table,
-    savedir=rootdir / "data",
+    savedir=meta.rootdir() / "data",
     savename=f"{__name__.split('.')[-1]}.csv",
 )
 ```

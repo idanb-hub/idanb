@@ -10,6 +10,7 @@ dependencies = [
     "idanb-labconfig",
     "idanb-lib",
     "ipykernel>=6.29.5",
+    "ipymui",
     "ipywidgets>=8.1.5",
     "itables[widget]>=2.4.4",
     "jupytext>=1.16.7",
@@ -17,7 +18,7 @@ dependencies = [
     "pydantic>=2.10.6",
     "pygit2>=1.18.2",
     "pyyaml>=6.0.2",
-    "solara-ui[markdown]>=1.44.1",
+    "reacton>=1.9.1",
     "structlog>=25.2.0",
 ]
 
@@ -53,9 +54,14 @@ formats = "ipynb,md:markdown"
 [tool.ruff]
 # Moved to => ruff.toml
 
+[[tool.uv.index]]
+name = "ipymui"
+url = "https://codeberg.org/api/packages/steovd/pypi/simple/"
+
 [tool.uv.sources]
 idanb-labconfig = { workspace = true }
 idanb-lib = { workspace = true }
+ipymui = { index = "ipymui" }
 
 [tool.uv.workspace]
 members = [
