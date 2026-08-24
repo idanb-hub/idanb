@@ -1,66 +1,114 @@
 repos:
-- repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v6.0.0
-  hooks:
-  - id: check-case-conflict
-  - id: check-executables-have-shebangs
-  - id: check-illegal-windows-names
-  - id: check-merge-conflict
-  - id: check-shebang-scripts-are-executable
-  - id: check-toml
-  - id: check-yaml
-  - id: end-of-file-fixer
-  - id: fix-byte-order-marker
-  - id: trailing-whitespace
-- repo: https://github.com/codespell-project/codespell
-  rev: v2.4.1
-  hooks:
-  - id: codespell
-- repo: https://github.com/executablebooks/mdformat
-  rev: 0.7.22
-  hooks:
-    - id: mdformat
-      additional_dependencies:
-      - mdformat-frontmatter
-      args:
-      - --check
-- repo: https://github.com/DetachHead/basedpyright-pre-commit-mirror
-  rev: 1.31.7
-  hooks:
-  - id: basedpyright
-    args: &basedpyright-args
-    - --venvpath=.
-    - --level=error  # suppress warnings
-- repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: v0.14.1
-  hooks:
-  - id: ruff-check
-    args: &ruff-check-args
-    - --ignore=FIX  # allow FIXME and similar comments
-  - id: ruff-format
-    args: &ruff-format-args
-    - --diff
-# Run `basedpyright` and `ruff` on markdown notebooks.
-- repo: local
-  hooks:
-  - &jupytext-check-hook
-    id: jupytext-basedpyright
-    name: jupytext basedpyright
-    entry: ./dev/scripts/jupytext_check.py "basedpyright"
-    language: python
-    types: [markdown]
-    files: ^notebooks/
-    args: *basedpyright-args
-    additional_dependencies: ["git+https://github.com/DetachHead/basedpyright-pre-commit-mirror@1.31.7"]
-  - <<: *jupytext-check-hook
-    id: jupytext-ruff-check
-    name: jupytext ruff check
-    entry: ./dev/scripts/jupytext_check.py "ruff check"
-    args: *ruff-check-args
-    additional_dependencies: ["git+https://github.com/astral-sh/ruff-pre-commit@v0.14.1"]
-  - <<: *jupytext-check-hook
-    id: jupytext-ruff-format
-    name: jupytext ruff format
-    entry: ./dev/scripts/jupytext_check.py "ruff format"
-    args: *ruff-format-args
-    additional_dependencies: ["git+https://github.com/astral-sh/ruff-pre-commit@v0.14.1"]
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-case-conflict
+      - id: check-executables-have-shebangs
+      - id: check-illegal-windows-names
+      - id: check-merge-conflict
+      - id: check-shebang-scripts-are-executable
+      - id: check-toml
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: fix-byte-order-marker
+      - id: trailing-whitespace
+  - repo: local
+    # Prefer local hooks over "official" pre-commit repos, because those often
+    # ship their own binaries. Local hooks use tools from project dependencies,
+    # which makes it easier to keep their versions consistent.
+    hooks:
+      - id: basedpyright
+        name: basedpyright
+        language: python
+        additional_dependencies: ["uv"]
+        entry: uv run --active basedpyright
+        args: &basedpyright-args
+          - --venvpath=.
+          - --level=error # suppress warnings
+        types_or: ["python"]
+        require_serial: true
+      - id: ruff-check
+        name: ruff check
+        language: python
+        additional_dependencies: ["uv"]
+        entry: uv run --active ruff check
+        args: &ruff-check-args
+          - --ignore=FIX # allow FIXME and similar comments
+        types: ["python"]
+        require_serial: true
+      - id: ruff-format
+        name: ruff format
+        language: python
+        additional_dependencies: ["uv"]
+        entry: uv run --active ruff format
+        args: &ruff-format-args
+          - --diff
+        types: ["python"]
+        require_serial: true
+      - id: codespell
+        name: codespell
+        language: python
+        additional_dependencies: ["uv"]
+        entry: uv run --active codespell
+        types: [text]
+      - id: mdformat
+        name: mdformat
+        language: python
+        additional_dependencies: ["uv"]
+        entry: uv run --active mdformat
+        args:
+          - --check
+        types: [markdown]
+      # Run `basedpyright` and `ruff` on markdown notebooks.
+      - &jupytext-run-hook
+        id: jupytext-basedpyright
+        name: jupytext basedpyright
+        language: python
+        additional_dependencies: ["uv"]
+        entry: uv run --active ./dev/scripts/jupytext_run.py "basedpyright"
+        args: *basedpyright-args
+        types: [markdown]
+        files: ^notebooks/
+      - <<: *jupytext-run-hook
+        id: jupytext-ruff-check
+        name: jupytext ruff check
+        language: python
+        additional_dependencies: ["uv"]
+        entry: uv run --active ./dev/scripts/jupytext_run.py "ruff check"
+        args: *ruff-check-args
+      - <<: *jupytext-run-hook
+        id: jupytext-ruff-format
+        name: jupytext ruff format
+        language: python
+        additional_dependencies: ["uv"]
+        entry: uv run --active ./dev/scripts/jupytext_run.py "ruff format"
+        args: *ruff-format-args
+      # Run `pnpm` scripts of front-end code.
+      - id: pnpm-install
+        name: pnpm install
+        language: node
+        additional_dependencies: ["pnpm"]
+        entry: pnpm install
+        pass_filenames: false
+        always_run: true
+      - id: tsc
+        name: tsc
+        language: node
+        additional_dependencies: ["pnpm"]
+        entry: pnpm exec ./dev/scripts/tsc_files.py
+        types_or: ["javascript"]
+        require_serial: true
+      - id: eslint
+        name: eslint
+        language: node
+        additional_dependencies: ["pnpm"]
+        entry: pnpm eslint
+        types_or: ["javascript"]
+        require_serial: true
+      - id: prettier
+        name: prettier
+        language: node
+        additional_dependencies: ["pnpm"]
+        entry: pnpm prettier --check
+        types_or: ["javascript", "json", "yaml"]
+        require_serial: true

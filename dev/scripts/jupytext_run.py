@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-"""Check plaintext Jupytext notebooks using tools for regular notebooks.
+"""Process plaintext Jupytext notebooks using tools for regular notebooks.
 
-usage: jupytext_check.py COMMAND [-FLAG | "-FLAG FLAG" | FILE] ...
+usage: jupytext_run.py COMMAND [-FLAG | "-FLAG FLAG" | FILE] ...
 
 arguments:
   COMMAND             command to run on each FILE (after conversion to `.ipynb`)
@@ -10,11 +10,10 @@ arguments:
   FILE                plaintext notebook to process
 """  # noqa: D405
 
-import os
 import shlex
+import shutil
 import subprocess
 import sys
-from pathlib import Path
 
 
 def log(*values: object) -> None:
@@ -46,16 +45,14 @@ def main() -> int:
 
     if not args:
         assert __doc__ is not None, "module docstring missing"
-        log(__doc__.replace("jupytext_check.py", sys.argv[0]).strip())
+        log(__doc__.replace("jupytext_run.py", sys.argv[0]).strip())
         return 2
 
     cmd, files = parse_args(args)
 
     args = [
-        "uv",
-        "run",
         "jupytext",
-        "--check",
+        "--pipe",
         cmd,
         "--pipe-fmt",
         "ipynb",
@@ -64,12 +61,11 @@ def main() -> int:
 
     log(shlex.join(args))
 
-    env = os.environ.copy()
-    # Suppress `uv` warning about venv mismatch in `pre-commit` hooks.
-    if "pre-commit" in Path(env.get("VIRTUAL_ENV", "")).parts:
-        del env["VIRTUAL_ENV"]
+    executable = shutil.which(args[0])
+    if executable is not None:
+        args[0] = executable
 
-    proc = subprocess.run(args, check=False, env=env)  # noqa: S603
+    proc = subprocess.run(args, check=False)  # noqa: S603
     return proc.returncode
 
 

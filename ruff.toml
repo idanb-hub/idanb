@@ -16,6 +16,7 @@ ignore = [
     "D413",    # Missing blank line after last docstring section
     "D418",    # Docstring on `@overload`-ed function (some LSPs support this)
     "N812",    # Lowercase imported as uppercase (`import typing as T`)
+    "PLW0108", # Unnecessary lambda
     "S101",    # Use of `assert` (useful for type narrowing)
     "TD002",   # Missing author in TODO (just use git blame)
     "TD003",   # Missing issue link in TODO
@@ -39,13 +40,20 @@ ignore = [
 
 [lint.flake8-boolean-trap]
 extend-allowed-calls = [
-    "reacton.use_state",
+    "idanb.react.use_state",
 ]
 
 [lint.flake8-comprehensions]
 allow-dict-calls-with-keyword-arguments = true
 
+[lint.flake8-import-conventions.aliases]
+typing_extensions = "T"
+
+[lint.flake8-tidy-imports.banned-api]
+"typing".msg = "use `import typing_extensions as T` instead"
+
 [lint.isort]
+force-to-top = ["typing_extensions"]
 force-wrap-aliases = true
 combine-as-imports = true
 known-first-party = [
@@ -67,4 +75,7 @@ allowed-unused-imports = [
 ]
 "**/__init__.py" = [
     "PLC0414", # Useless import aliases (used for re-exporting imports)
+]
+"./bootstrap.py" = [
+    "ERA001",  # Commented-out code (flags markdown comments)
 ]

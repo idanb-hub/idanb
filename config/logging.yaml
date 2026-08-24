@@ -1,9 +1,9 @@
 .defs:
-  - &debug {level: DEBUG}
-  - &info {level: INFO}
-  - &warning {level: WARNING}
-  - &error {level: ERROR}
-  - &critical {level: CRITICAL}
+  - &debug { level: DEBUG }
+  - &info { level: INFO }
+  - &warning { level: WARNING }
+  - &error { level: ERROR }
+  - &critical { level: CRITICAL }
 # https://docs.python.org/3/library/logging.config.html#logging-config-dictschema
 version: 1
 loggers:

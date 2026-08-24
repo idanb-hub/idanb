@@ -22,20 +22,17 @@ import functools
 import itertools
 import shlex
 import subprocess
-import typing
 from datetime import UTC, datetime, timedelta, timezone
 
+import typing_extensions as T
 import pygit2
-import reacton
 from ipymui import callback
 from ipymui.components import mui
 
-from idanb import meta, ui
+from idanb import meta, react
 
-if typing.TYPE_CHECKING:
+if T.TYPE_CHECKING:
     from pathlib import Path
-
-    import typing_extensions as T
 ```
 
 ```python
@@ -128,7 +125,7 @@ def get_upstream_commits() -> list[pygit2.Commit]:
 ```
 
 ```python
-@reacton.component
+@react.component
 def CommitLog(commits: list[pygit2.Commit]) -> None:  # noqa: N802
     with mui.Box():
         for commit in commits:
@@ -136,17 +133,17 @@ def CommitLog(commits: list[pygit2.Commit]) -> None:  # noqa: N802
 ```
 
 ```python
-new_commits_global = ui.create_global([])
-repo_timestamp_global = ui.create_global(datetime.now(tz=UTC))
+new_commits_global = react.create_global([])
+repo_timestamp_global = react.create_global(datetime.now(tz=UTC))
 ```
 
 ```python
-@reacton.component
+@react.component
 def FetchPage() -> None:  # noqa: N802
     with mui.Stack(direction="column", gap=1):
-        new_commits, _ = ui.use_global(new_commits_global)
+        new_commits, _ = react.use_global(new_commits_global)
 
-        @ui.use_task()
+        @react.use_task()
         async def fetch() -> None:
             await run("git fetch --verbose --prune", check=True)
             repo_timestamp_global.set(datetime.now(tz=UTC))
@@ -157,7 +154,7 @@ def FetchPage() -> None:  # noqa: N802
             new_commits_global.set(commits)
 
         # Automatically fetch on first render.
-        reacton.use_memo(lambda: fetch(), dependencies=[])
+        react.use_memo(lambda: fetch(), dependencies=[])
 
         mui.Button(
             "Check Updates",
@@ -207,7 +204,7 @@ STATUS_MESSAGE = {
 }
 
 
-@reacton.component
+@react.component
 def ChangedFilesList(files: dict[str, pygit2.enums.FileStatus]) -> None:  # noqa: N802
     with mui.Stack(direction="column"):
         for file, status in files.items():
@@ -227,7 +224,7 @@ def ChangedFilesList(files: dict[str, pygit2.enums.FileStatus]) -> None:  # noqa
 ```
 
 ```python
-@reacton.component
+@react.component
 def RestoreDialog(  # noqa: N802
     *,
     show: bool,
@@ -245,7 +242,7 @@ def RestoreDialog(  # noqa: N802
         on_close: Called when dialog should close.
         then: Function to run after changes are reverted.
     """
-    changes, set_changes = reacton.use_state({})
+    changes, set_changes = react.use_state({})
 
     def on_changes() -> None:
         # Skip dialog if there are no changes.
@@ -253,14 +250,15 @@ def RestoreDialog(  # noqa: N802
             on_close()
             then()
 
-    reacton.use_effect(on_changes, dependencies=[show, changes])
+    react.use_effect(on_changes, dependencies=[show, changes])
 
-    if not ui.use_previous(show) and show:
+    if not react.use_previous(show) and show:
         # Runs once every time dialog is opened (`show` changes to `True`).
         set_changes(repo.status(untracked_files="no"))
 
-    @ui.use_task()
+    @react.use_task()
     async def restore() -> None:
+        on_close()
         # The ":/" is magic pathspec for repository root.
         await run("git restore --staged --worktree :/", check=True)
         then()
@@ -286,12 +284,12 @@ def RestoreDialog(  # noqa: N802
 ```
 
 ```python
-@reacton.component
+@react.component
 def RebasePage() -> None:  # noqa: N802
     with mui.Stack(direction="column", gap=1):
-        new_commits, _ = ui.use_global(new_commits_global)
+        new_commits, _ = react.use_global(new_commits_global)
 
-        @ui.use_task()
+        @react.use_task()
         async def update() -> None:
             # Rebase targets upstream by default (what we want).
             await run("git rebase", check=True)
@@ -302,7 +300,7 @@ def RebasePage() -> None:  # noqa: N802
             # Bootstrap script syncs dependencies and notebooks.
             await run(str(meta.rootdir() / "bootstrap.py"), check=True)
 
-        dialog_open, set_dialog_open = reacton.use_state(False)
+        dialog_open, set_dialog_open = react.use_state(False)
         RestoreDialog(
             show=dialog_open,
             on_close=lambda: set_dialog_open(False),
@@ -324,7 +322,7 @@ def RebasePage() -> None:  # noqa: N802
 ```
 
 ```python
-@reacton.component
+@react.component
 def UpdatePage() -> None:  # noqa: N802
     with mui.Stack(direction="column", gap=1):
         FetchPage()
@@ -367,7 +365,7 @@ def delete_files(files: T.Iterable[str]) -> T.Iterable[str]:
 ```
 
 ```python
-@reacton.component
+@react.component
 def FindAndDeleteFiles(  # noqa: N802, PLR0913
     *,
     glob: str,
@@ -391,20 +389,20 @@ def FindAndDeleteFiles(  # noqa: N802, PLR0913
         on_pending: Called when `pending` should change.
         disabled: Whether to disable this components' inputs.
     """
-    files, set_files = ui.use_state_from(files or {}, on_files)
+    files, set_files = react.use_state_from(files or {}, on_files)
 
     selected = [f for f, s in files.items() if s]
 
-    @ui.use_task()
+    @react.use_task()
     async def find() -> None:
         set_files(dict.fromkeys(find_files(glob, subdir), True))
 
-    @ui.use_task()
+    @react.use_task()
     async def delete() -> None:
         deleted = set(delete_files(selected))
         set_files({f: s for f, s in files.items() if f not in deleted})
 
-    pending, set_pending = ui.use_state_from(pending, on_pending)
+    pending, set_pending = react.use_state_from(pending, on_pending)
 
     set_pending(find.pending or delete.pending)
     disabled = disabled or find.pending or delete.pending
@@ -470,12 +468,12 @@ def is_file_older_than(path: str | Path, threshold: datetime) -> bool:
 ```
 
 ```python
-@reacton.component
+@react.component
 def DeleteData() -> None:  # noqa: N802
-    files, set_files = reacton.use_state({})
-    pending, set_pending = reacton.use_state(False)
+    files, set_files = react.use_state({})
+    pending, set_pending = react.use_state(False)
 
-    @ui.use_task()
+    @react.use_task()
     async def select_old() -> None:
         threshold = datetime.now(tz=UTC) - timedelta(days=7)
         set_files(
@@ -561,32 +559,32 @@ def get_all_branches(repo: pygit2.Repository) -> list[str]:
 ```
 
 ```python
-@reacton.component
+@react.component
 def SwitchPage() -> None:  # noqa: N802
-    repo_timestamp, _ = ui.use_global(repo_timestamp_global)
+    repo_timestamp, _ = react.use_global(repo_timestamp_global)
 
-    branches = reacton.use_memo(
+    branches = react.use_memo(
         lambda: get_all_branches(repo),
         # Recompute after `git fetch`.
         dependencies=[repo_timestamp],
     )
 
-    initial_branch = reacton.use_memo(lambda: repo.head.shorthand)
-    current_branch, set_current_branch = reacton.use_state(initial_branch)
-    selected_branch, set_selected_branch = reacton.use_state(initial_branch)
+    initial_branch = react.use_memo(lambda: repo.head.shorthand)
+    current_branch, set_current_branch = react.use_state(initial_branch)
+    selected_branch, set_selected_branch = react.use_state(initial_branch)
 
-    message, set_message = reacton.use_state("")
+    message, set_message = react.use_state("")
 
     mui.Alert(f"Currently on branch: {current_branch}")
 
-    @ui.use_task()
+    @react.use_task()
     async def switch() -> None:
         await run(["git", "switch", selected_branch], check=True)
         await run(str(meta.rootdir() / "bootstrap.py"), check=True)
         set_current_branch(repo.head.shorthand)
         set_message(f"Switched to branch '{current_branch}'")
 
-    dialog_open, set_dialog_open = reacton.use_state(False)
+    dialog_open, set_dialog_open = react.use_state(False)
     RestoreDialog(
         show=dialog_open,
         on_close=lambda: set_dialog_open(False),

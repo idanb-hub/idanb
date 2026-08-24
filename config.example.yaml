@@ -10,5 +10,5 @@ data_platform:
     opensearch: opensearch
   schema: default
   http_scheme: https
-  auth_username: null  # fill in
-  auth_password: null  # fill in
+  auth_username: null # fill in
+  auth_password: null # fill in
