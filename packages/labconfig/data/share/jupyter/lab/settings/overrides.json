@@ -1,8 +1,11 @@
 {
-    "@jupyterlab/docmanager-extension:plugin": {
-        "defaultViewers": {
-            "notebook": "Voila Preview",
-            "markdown": "Jupytext Notebook"
-        }
+  "@jupyterlab/docmanager-extension:plugin": {
+    "defaultViewers": {
+      "notebook": "Voila Preview",
+      "markdown": "Jupytext Notebook"
     }
+  },
+  "@jupyterlab/notebook-extension:tracker": {
+    "autoStartDefaultKernel": true
+  }
 }

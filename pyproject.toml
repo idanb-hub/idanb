@@ -31,7 +31,7 @@ local = [
 
 [dependency-groups]
 dev = [
-    "pre-commit>=4.1.0",
+    "prek>=0.4.14",
     "typing-extensions>=4.12.2",
 ]
 

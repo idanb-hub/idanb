@@ -37,12 +37,12 @@ using globs.
 
 ## Pre-commit
 
-[Pre-commit](https://pre-commit.com) is configured to check staged code before
+[Prek](https://prek.j178.dev/) is configured to check staged code before
 each commit.
 However, you first need to enable it:
 
 ```python
-! uv run pre-commit install
+! uv run prek install
 ```
 
 ## Developer mode

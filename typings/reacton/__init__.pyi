@@ -1,5 +1,5 @@
-import ipywidgets
 import typing_extensions as T
+import ipywidgets
 
 import reacton.core as _core
 

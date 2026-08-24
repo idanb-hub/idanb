@@ -1,13 +1,11 @@
 {
-    "VoilaConfiguration": {
-        "progressive_rendering": true,
-        "show_tracebacks": true,
-        "file_allowlist": [
-            ".*"
-        ],
-        "extension_language_mapping": {
-            ".py": "python",
-            ".md": "python"
-        }
+  "VoilaConfiguration": {
+    "progressive_rendering": true,
+    "show_tracebacks": true,
+    "file_allowlist": [".*\\.(js|css)"],
+    "extension_language_mapping": {
+      ".py": "python",
+      ".md": "python"
     }
+  }
 }
