@@ -267,6 +267,9 @@ def errmsg(msg: str) -> T.Generator[None]:
 
 
 def bootstrap() -> None:
+    # Fetch git submodules.
+    run("git submodule update --init")
+
     # Make sure `uv` is available before running any commands.
     try:
         with errmsg("Requirements not satisfied"):
