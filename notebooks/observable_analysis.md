@@ -1,7 +1,7 @@
 # Observable Analysis
 
-Notebook for analysis of an observable (hash, domain, or IP address) using VirusTotal,
-and for searching associated IOCs in local SQLite network flow data.
+Notebook for evaluation and analysis of an observable (hash, domain, or IP address)
+using VirusTotal and for search of associated IOCs in network flow data.
 
 <details>
 <summary>Maintainers</summary>
@@ -231,28 +231,28 @@ def _merge_iocs(base: IOCSet, extra: IOCSet) -> IOCSet:
 # ---------------------------------------------------------------------------
 
 _SELECT_BASIC = textwrap.dedent("""\
-    tslocal AS timestamp,
-    CAST((iana__flowendmilliseconds - iana__flowstartmilliseconds) / 1000 AS INT),
+    tslocal AS "START TIME - FIRST SEEN",
+    CAST((iana__flowendmilliseconds - iana__flowstartmilliseconds) / 1000 AS INT) AS "DURATION",
     CASE iana__protocolidentifier
         WHEN 1  THEN 'ICMP'
         WHEN 6  THEN 'TCP'
         WHEN 17 THEN 'UDP'
         ELSE CAST(iana__protocolidentifier AS TEXT)
-    END,
-    COALESCE(iana__sourceipv4address, iana__sourceipv6address),
-    iana__sourcetransportport,
-    COALESCE(iana__destinationipv4address, iana__destinationipv6address),
-    iana__destinationtransportport,
-    iana__tcpcontrolbits__flags,
-    iana__packetdeltacount,
-    iana__octetdeltacount,
-    UPPER(proto__detected_type),
-    proto__http__host_http,
-    proto__http__url_http,
-    proto__http__statuscode_http,
-    proto__tls__sni_tls,
-    proto__dns__qname_dns,
-    proto__dns__crrrdata_dns,
+    END AS "PROTOCOL",
+    COALESCE(iana__sourceipv4address, iana__sourceipv6address) AS "SOURCE IP ADDRESS",
+    iana__sourcetransportport AS "SOURCE PORT",
+    COALESCE(iana__destinationipv4address, iana__destinationipv6address) AS "DESTINATION IP ADDRESS",
+    iana__destinationtransportport AS "DESTINATION PORT",
+    iana__tcpcontrolbits__flags AS "TCP FLAGS",
+    iana__packetdeltacount AS "PACKETS",
+    iana__octetdeltacount AS "BYTES",
+    UPPER(proto__detected_type) AS "DETECTED PROTOCOL",
+    proto__http__host_http AS "HTTP HOST",
+    proto__http__url_http AS "HTTP URL",
+    proto__http__statuscode_http AS "HTTP STATUS CODE",
+    proto__tls__sni_tls AS "TLS SNI",
+    proto__dns__qname_dns AS "DNS QNAME",
+    proto__dns__crrrdata_dns AS "DNS RESPONSE",
     CASE proto__dns__crrtype_dns
         WHEN 1     THEN 'A'
         WHEN 5     THEN 'CNAME'
@@ -260,35 +260,35 @@ _SELECT_BASIC = textwrap.dedent("""\
         WHEN 65    THEN 'HTTPS'
         WHEN 65535 THEN 'N/A'
         ELSE CAST(proto__dns__crrtype_dns AS TEXT)
-    END,
-    ipfix__srcaddr\
+    END AS "DNS RESPONSE TYPE",
+    ipfix__srcaddr AS "PROBE"\
 """)
 
 _SELECT_GEOLOCATION = textwrap.dedent("""\
-    tslocal AS timestamp,
-    CAST((iana__flowendmilliseconds - iana__flowstartmilliseconds) / 1000 AS INT),
+    tslocal AS "START TIME - FIRST SEEN",
+    CAST((iana__flowendmilliseconds - iana__flowstartmilliseconds) / 1000 AS INT) AS "DURATION",
     CASE iana__protocolidentifier
         WHEN 1  THEN 'ICMP'
         WHEN 6  THEN 'TCP'
         WHEN 17 THEN 'UDP'
         ELSE CAST(iana__protocolidentifier AS TEXT)
-    END,
-    COALESCE(iana__sourceipv4address, iana__sourceipv6address),
-    geoip_src.country_iso_code || ', ' || geoip_src.country_name,
-    iana__sourcetransportport,
-    COALESCE(iana__destinationipv4address, iana__destinationipv6address),
-    geoip_dest.country_iso_code || ', ' || geoip_dest.country_name,
-    iana__destinationtransportport,
-    iana__tcpcontrolbits__flags,
-    iana__packetdeltacount,
-    iana__octetdeltacount,
-    UPPER(proto__detected_type),
-    proto__http__host_http,
-    proto__http__url_http,
-    proto__http__statuscode_http,
-    proto__tls__sni_tls,
-    proto__dns__qname_dns,
-    proto__dns__crrrdata_dns,
+    END AS "PROTOCOL",
+    COALESCE(iana__sourceipv4address, iana__sourceipv6address) AS "SOURCE IP ADDRESS",
+    geoip_src.country_iso_code || ', ' || geoip_src.country_name AS "SOURCE COUNTRY",
+    iana__sourcetransportport AS "SOURCE PORT",
+    COALESCE(iana__destinationipv4address, iana__destinationipv6address) AS "DESTINATION IP ADDRESS",
+    geoip_dest.country_iso_code || ', ' || geoip_dest.country_name AS "DESTINATION COUNTRY",
+    iana__destinationtransportport AS "DESTINATION PORT",
+    iana__tcpcontrolbits__flags AS "TCP FLAGS",
+    iana__packetdeltacount AS "PACKETS",
+    iana__octetdeltacount AS "BYTES",
+    UPPER(proto__detected_type) AS "DETECTED PROTOCOL",
+    proto__http__host_http AS "HTTP HOST",
+    proto__http__url_http AS "HTTP URL",
+    proto__http__statuscode_http AS "HTTP STATUS CODE",
+    proto__tls__sni_tls AS "TLS SNI",
+    proto__dns__qname_dns AS "DNS QNAME",
+    proto__dns__crrrdata_dns AS "DNS RESPONSE",
     CASE proto__dns__crrtype_dns
         WHEN 1     THEN 'A'
         WHEN 5     THEN 'CNAME'
@@ -296,8 +296,8 @@ _SELECT_GEOLOCATION = textwrap.dedent("""\
         WHEN 65    THEN 'HTTPS'
         WHEN 65535 THEN 'N/A'
         ELSE CAST(proto__dns__crrtype_dns AS TEXT)
-    END,
-    ipfix__srcaddr\
+    END AS "DNS RESPONSE TYPE",
+    ipfix__srcaddr AS "PROBE"\
 """)
 
 _FROM_GEOLOCATION = textwrap.dedent("""\
@@ -408,6 +408,34 @@ def build_ioc_query(
     """)
 ```
 
+```python
+# ---------------------------------------------------------------------------
+# Cross-section bridge state
+# ---------------------------------------------------------------------------
+import ipywidgets as _ipw
+
+# Part 1 → Part 2: observable pushed from QuickAnalysis to ExtractIOCs.
+_qa_observable: str = ""
+_qa_obs_version = _ipw.IntText(value=0)
+
+
+def _on_analyse_done(obs: str) -> None:
+    global _qa_observable
+    _qa_observable = obs
+    _qa_obs_version.value += 1
+
+
+# Part 2 → Part 3: IOCs pushed from ExtractIOCs to FlowSearch.
+_extracted_iocs: IOCSet | None = None
+_iocs_version = _ipw.IntText(value=0)
+
+
+def _on_iocs(iocs: IOCSet) -> None:
+    global _extracted_iocs
+    _extracted_iocs = iocs
+    _iocs_version.value += 1
+```
+
 ## Quick Analysis
 
 Analyses a provided observable (file hash, domain, or IP address) with VirusTotal
@@ -418,9 +446,8 @@ link to the full report.
 @react.component
 def QuickAnalysis(  # noqa: N802
     *,
-    observable: str = "",
-    trigger: int = 0,
     on_report: T.Callable[[str, dict[str, T.Any]], None] | None = None,
+    on_analyse_done: T.Callable[[str], None] | None = None,
 ) -> None:
     """Search an observable on VirusTotal and display a summary.
 
@@ -430,6 +457,8 @@ def QuickAnalysis(  # noqa: N802
     """
     if on_report is None:
         on_report = utils.functional.void
+
+    observable, set_observable = react.use_state("")
 
     @react.use_task()
     async def analyse(obs: str) -> dict[str, T.Any]:
@@ -446,12 +475,31 @@ def QuickAnalysis(  # noqa: N802
         await connector.close()
         return report
 
-    react.use_effect(
-        lambda: analyse.start(observable) if trigger > 0 else None,
-        [trigger]
-    )
+    def submit(formdata: dict[str, str]) -> None:
+        obs = formdata["observable"].strip()
+        set_observable(obs)
+        analyse.start(obs)
+        if on_analyse_done is not None:
+            on_analyse_done(obs)
 
     with mui.Stack(spacing=1, sx=dict(my=1)):
+        with mui.Stack(direction="row", spacing=1, alignItems="center"):
+            with mui.Box(component="form", action=submit, sx=dict(flex=1)):
+                mui.TextField(
+                    label="Observable (hash / IP / domain / URL)",
+                    name="observable",
+                    defaultValue=observable,
+                    key=observable,
+                    fullWidth=True,
+                    size="small",
+                )
+                mui.Button(
+                    "Analyse",
+                    type="submit",
+                    variant="contained",
+                    disabled=analyse.pending,
+                    sx=dict(mt=1),
+                )
 
         match analyse.status:
             case analyse.NotCalled():
@@ -501,14 +549,15 @@ def QuickAnalysis(  # noqa: N802
                                 onClick=lambda: on_report(observable, report),
                                 sx=dict(alignSelf="flex-start"),
                             )
+QuickAnalysis(on_analyse_done=_on_analyse_done)
 ```
 
 ## Extract IOCs
 
 Extracts IP addresses, domains, and URLs associated with the observable from its
-VirusTotal report (direct IOCs). Also checks any bundled or dropped files referenced
-in the report — if a related file is itself flagged as malicious (≥ 5 detections),
-its IOCs are included as indirect IOCs.
+VirusTotal report (direct IOCs which are highlighted with blue color in the report). 
+Also checks any bundled or dropped files referenced in the report — if a related file is 
+itself flagged as malicious (≥ 5 detections), its IOCs are included as indirect IOCs.
 
 > **Note — passive DNS:** Extracted IP addresses and domains may include historical
 > passive DNS resolutions, which can be outdated. Check the full VT report
@@ -520,24 +569,32 @@ def ExtractIOCs(  # noqa: N802
     *,
     observable: str = "",
     report: dict[str, T.Any] | None = None,
-    trigger: int = 0,
     on_iocs: T.Callable[[IOCSet], None] | None = None,
 ) -> None:
     """Extract IOCs from a VirusTotal report.
 
+    When called without arguments the component shows its own observable input
+    and fetches the VT report internally (standalone mode). When `observable`
+    and `report` are provided as props the fetch step is skipped.
+
     Args:
         observable: The observable that was analysed.
-        report: Raw JSON report from the VT API.
-        trigger: Increment to trigger extraction.
+        report: Raw JSON report from the VT API.  When *None* the component
+            fetches the report itself after the user submits the input form.
         on_iocs: Called with the extracted IOCSet when extraction completes.
+            When provided, a "Use these IOCs" button is shown in the results.
     """
     if on_iocs is None:
         on_iocs = utils.functional.void
 
-    # Per-category selection sets (values of selected IOCs).
-    sel_ips, set_sel_ips = react.use_state(frozenset[str]())
-    sel_domains, set_sel_domains = react.use_state(frozenset[str]())
-    sel_urls, set_sel_urls = react.use_state(frozenset[str]())
+    # Track the observable the user typed in standalone mode.
+    input_obs, set_input_obs = react.use_state(observable)
+
+    # Guard: track the last IOCSet we already forwarded to Part 3 so we don't
+    # re-fire on_iocs on every re-render.
+    _last_iocs_sent, _set_last_iocs_sent = react.use_state(
+        T.cast(IOCSet | None, None)
+    )
 
     @react.use_task()
     async def extract(obs: str, rpt: dict[str, T.Any] | None) -> IOCSet:
@@ -605,21 +662,47 @@ def ExtractIOCs(  # noqa: N802
             urls=iocs.urls,
         )
 
-    # Reset selection when a new extraction run starts.
-    def _reset_selection() -> None:
-        set_sel_ips(frozenset())
-        set_sel_domains(frozenset())
-        set_sel_urls(frozenset())
 
+    def submit(formdata: dict[str, str]) -> None:
+        obs = formdata["observable"].strip()
+        set_input_obs(obs)
+        extract.start(obs, None)  # fetch VT + extract in one shot
+
+    # Standalone input form — shown only when no report is injected via props.
+    if report is None:
+        with mui.Box(component="form", action=submit, sx=dict(my=1)):
+            mui.TextField(
+                label="Observable (hash / IP / domain / URL)",
+                name="observable",
+                defaultValue=input_obs,
+                key=input_obs,
+                fullWidth=True,
+                size="small",
+            )
+            mui.Button(
+                "Extract IOCs",
+                type="submit",
+                variant="contained",
+                disabled=extract.pending,
+                sx=dict(mt=1),
+            )
+
+    # Wired mode: trigger extraction whenever a new report arrives via props.
     react.use_effect(
-        lambda: _reset_selection() if extract.pending else None,
-        [extract.pending],
+        lambda: extract.start(observable, report) if report is not None else None,
+        [observable, report],
     )
 
-    react.use_effect(
-        lambda: extract.start(observable, report) if trigger > 0 else None,
-        [trigger],
-    )
+    # Subscribe to Part 1 (QuickAnalysis) observable pushes — pre-fill the
+    # input field whenever the user runs analysis in Part 1.
+    def _subscribe_qa() -> T.Callable[[], None]:
+        def _on_qa_change(change: dict) -> None:
+            set_input_obs(_qa_observable)
+
+        _qa_obs_version.observe(_on_qa_change, names=["value"])
+        return lambda: _qa_obs_version.unobserve(_on_qa_change, names=["value"])
+
+    react.use_effect(_subscribe_qa, [])
 
     match extract.status:
         case extract.NotCalled():
@@ -630,15 +713,159 @@ def ExtractIOCs(  # noqa: N802
         case extract.Exception(exc):
             mui.Alert(str(exc), severity="error")
         case extract.Result(iocs):
-            # Auto-select all IOCs on first render of this result (selection is
-            # reset to empty when the extraction task starts).
-            if not sel_ips and iocs.ip_addresses:
-                set_sel_ips(frozenset(v for v, _ in iocs.ip_addresses))
-            if not sel_domains and iocs.domains:
-                set_sel_domains(frozenset(v for v, _ in iocs.domains))
-            if not sel_urls and iocs.urls:
-                set_sel_urls(frozenset(v for v, _ in iocs.urls))
+            # Auto-push ALL IOCs to Part 3 on first render of this result.
+            # Guard: _last_iocs_sent prevents re-firing on every re-render.
+            # Note: IOCSet is a Record (has __call__), so we must wrap in a
+            # lambda to prevent reacton from treating it as a functional updater.
+            if on_iocs is not utils.functional.void and iocs is not _last_iocs_sent:
+                _set_last_iocs_sent(lambda _: iocs)
+                on_iocs(iocs)
 
+            def _chip_list(
+                label: str,
+                items: tuple[tuple[str, bool], ...],
+            ) -> None:
+                mui.Typography(label, variant="subtitle2")
+                if not items:
+                    mui.Typography("None", variant="body2", color="text.secondary")
+                    return
+                with mui.Box(sx=dict(display="flex", flexWrap="wrap", gap=0.5, mt=0.5)):
+                    for value, is_direct in items:
+                        mui.Chip(
+                            label=value,
+                            size="small",
+                            color="primary" if is_direct else "default",
+                            variant="filled",
+                            title="Direct IOC" if is_direct else "Indirect IOC",
+                        )
+
+            with mui.Stack(spacing=1.5, sx=dict(my=1)):
+                _chip_list("IP Addresses", iocs.ip_addresses)
+                _chip_list("Domains", iocs.domains)
+                _chip_list("URLs", iocs.urls)
+```
+
+```python
+ExtractIOCs(on_iocs=_on_iocs)
+```
+
+## Search IOCs in Network Flows
+
+Searches the extracted IOCs in a local database of network flows:
+
+- **IP addresses** are matched against source and destination IP fields.
+- **Domains** are matched in `DNS QNAME`, `TLS SNI`, and `HTTP HOST` fields.
+- **URLs** are split into host + path, both must match in `HTTP HOST` / `HTTP URL`.
+
+You can also add extra IP addresses and domains using the dedicated text fields.
+
+```python
+table = ui.widgets.PerspectiveWidget(data=None)
+```
+
+```python
+class FlowSearchState(utils.immutable.Record):
+    addresses: tuple[str, ...] = ()
+    domains: tuple[str, ...] = ()
+    urls: tuple[str, ...] = ()
+    extra_addresses: str = ""
+    extra_domains: str = ""
+    start_time: datetime = dataclasses.field(
+        default_factory=lambda: datetime(2025, 2, 1, tzinfo=UTC),
+    )
+    end_time: datetime = dataclasses.field(
+        default_factory=lambda: datetime(2025, 3, 1, tzinfo=UTC),
+    )
+    view: str = "basic"
+    limit: int | None = 40000
+
+
+@react.component
+def FlowSearch(  # noqa: N802
+    *,
+    iocs: IOCSet | None = None,
+) -> None:
+    """Search IOCs in the SQLite flow database.
+
+    Args:
+        iocs: Pre-populated IOCs from the Extract IOCs step.
+    """
+    state, set_state = react.use_store(FlowSearchState())
+
+    # Subscribe to cross-section IOC pushes from Part 2 (ExtractIOCs).
+    # _iocs_version is a module-level ipywidgets.IntText; when its value
+    # increments the observer fires set_ext_version, which triggers a re-render
+    # so FlowSearch can read the freshly-stored _extracted_iocs.
+    ext_version, set_ext_version = react.use_state(0)
+
+    # Per-category IOC selection — auto-populated when new IOCs arrive.
+    sel_ips, set_sel_ips = react.use_state(frozenset[str]())
+    sel_domains, set_sel_domains = react.use_state(frozenset[str]())
+    sel_urls, set_sel_urls = react.use_state(frozenset[str]())
+
+    def _subscribe() -> T.Callable[[], None]:
+        def _on_change(change: dict) -> None:
+            set_ext_version(change["new"])
+
+        _iocs_version.observe(_on_change, names=["value"])
+        return lambda: _iocs_version.unobserve(_on_change, names=["value"])
+
+    react.use_effect(_subscribe, [])
+
+    # Pre-populate from IOCs whenever they arrive — either via the `iocs` prop
+    # (wired mode) or via the shared counter (cross-section push from Part 2).
+    effective_iocs = (_extracted_iocs if ext_version > 0 else None) or iocs
+
+    # Clear selection whenever a new IOCSet arrives so the user picks
+    # explicitly which IOCs to include in the search.
+    react.use_effect(
+        lambda: (
+            set_sel_ips(frozenset()),
+            set_sel_domains(frozenset()),
+            set_sel_urls(frozenset()),
+        )
+        if effective_iocs is not None
+        else None,
+        [ext_version, iocs],
+    )
+
+    @react.use_task()
+    async def search(
+        s: FlowSearchState,
+        addrs: tuple[str, ...],
+        doms: tuple[str, ...],
+        urls: tuple[str, ...],
+    ) -> None:
+        db_config = CONFIG[SQLiteDBConfig]
+        connector = SQLiteConnector(path=db_config.path)
+
+        extra_ips = [a.strip() for a in s.extra_addresses.split(",") if a.strip()]
+        extra_domains = [d.strip() for d in s.extra_domains.split(",") if d.strip()]
+
+        query = build_ioc_query(
+            addresses=list(addrs),
+            domains=list(doms),
+            urls=list(urls),
+            extra_addresses=extra_ips,
+            extra_domains=extra_domains,
+            start_time=s.start_time,
+            end_time=s.end_time,
+            view=s.view,
+            limit=s.limit,
+        )
+
+        async with connector.execute(query) as q:
+            rows = list(q._rows)
+            columns = [col[0] for col in q.schema]
+
+        import polars as pl
+
+        df = pl.DataFrame(rows, schema=columns, orient="row")
+        table.load(df)
+
+    with mui.Stack(spacing=2, sx=dict(my=1)):
+        # --- IOC selector (populated from Part 2 results) ---
+        if effective_iocs is not None:
             def _selectable_chip_list(
                 label: str,
                 items: tuple[tuple[str, bool], ...],
@@ -679,9 +906,11 @@ def ExtractIOCs(  # noqa: N802
                 with mui.Box(sx=dict(display="flex", flexWrap="wrap", gap=0.5)):
                     for value, is_direct in items:
                         selected = value in sel
-
-                        def _toggle(v: str = value) -> None:
-                            set_sel(sel - {v} if v in sel else sel | {v})
+                        toggle = (
+                            lambda v: lambda: set_sel(
+                                lambda s: s - {v} if v in s else s | {v}
+                            )
+                        )(value)
 
                         mui.Chip(
                             label=value,
@@ -693,154 +922,29 @@ def ExtractIOCs(  # noqa: N802
                                 + " IOC — click to "
                                 + ("deselect" if selected else "select")
                             ),
-                            onClick=_toggle,
+                            onClick=toggle,
                             clickable=True,
                         )
 
-            with mui.Stack(spacing=2, sx=dict(my=1)):
+            with mui.Stack(spacing=1.5):
                 _selectable_chip_list(
-                    "IP Addresses", iocs.ip_addresses, sel_ips, set_sel_ips
+                    "IP Addresses",
+                    effective_iocs.ip_addresses,
+                    sel_ips,
+                    set_sel_ips,
                 )
                 _selectable_chip_list(
-                    "Domains", iocs.domains, sel_domains, set_sel_domains
+                    "Domains",
+                    effective_iocs.domains,
+                    sel_domains,
+                    set_sel_domains,
                 )
                 _selectable_chip_list(
-                    "URLs", iocs.urls, sel_urls, set_sel_urls
+                    "URLs",
+                    effective_iocs.urls,
+                    sel_urls,
+                    set_sel_urls,
                 )
-
-                # Only shown when wired to FlowSearch via on_iocs.
-                if on_iocs is not utils.functional.void:
-
-                    def _pass_selected() -> None:
-                        on_iocs(
-                            IOCSet(
-                                ip_addresses=tuple(
-                                    (v, d)
-                                    for v, d in iocs.ip_addresses
-                                    if v in sel_ips
-                                ),
-                                domains=tuple(
-                                    (v, d)
-                                    for v, d in iocs.domains
-                                    if v in sel_domains
-                                ),
-                                urls=tuple(
-                                    (v, d)
-                                    for v, d in iocs.urls
-                                    if v in sel_urls
-                                ),
-                            )
-                        )
-
-                    n_selected = len(sel_ips) + len(sel_domains) + len(sel_urls)
-                    mui.Button(
-                        f"Use {n_selected} selected IOC(s) in flow search ↓",
-                        variant="contained",
-                        size="small",
-                        disabled=n_selected == 0,
-                        onClick=_pass_selected,
-                        sx=dict(alignSelf="flex-start"),
-                    )
-
-table = ui.widgets.PerspectiveWidget(data=None)
-
-class FlowSearchState(utils.immutable.Record):
-    addresses: tuple[str, ...] = ()
-    domains: tuple[str, ...] = ()
-    urls: tuple[str, ...] = ()
-    extra_addresses: str = ""
-    extra_domains: str = ""
-    start_time: datetime = dataclasses.field(
-        default_factory=lambda: datetime.now().astimezone().replace(second=0, microsecond=0)
-        - timedelta(hours=1),
-    )
-    end_time: datetime = dataclasses.field(
-        default_factory=lambda: datetime.now().astimezone().replace(second=0, microsecond=0),
-    )
-    view: str = "basic"
-    limit: int | None = 40000
-```
-
-## Search IOCs in Network Flows
-
-Searches the extracted IOCs in a locally stored SQLite database of network flows:
-
-- **IP addresses** are matched against source and destination IP fields.
-- **Domains** are matched in `DNS QNAME`, `TLS SNI`, and `HTTP HOST` fields.
-- **URLs** are split into host + path, both must match in `HTTP HOST` / `HTTP URL`.
-
-You can also add extra IP addresses and domains manually.
-
-```python
-@react.component
-def FlowSearch(  # noqa: N802
-    *,
-    iocs: IOCSet | None = None,
-) -> None:
-    """Search IOCs in the SQLite flow database.
-
-    Args:
-        iocs: Pre-populated IOCs from the Extract IOCs step.
-    """
-    state, set_state = react.use_store(FlowSearchState())
-
-    # Pre-populate from IOCs whenever they change.
-    react.use_effect(
-        lambda: (
-            set_state(
-                addresses=tuple(
-                    v.split()[0] for v, _ in iocs.ip_addresses
-                ),
-                domains=tuple(v for v, _ in iocs.domains),
-                urls=tuple(v for v, _ in iocs.urls),
-            )
-            if iocs is not None
-            else None
-        ),
-        [iocs],
-    )
-
-    @react.use_task()
-    async def search(s: FlowSearchState) -> None:
-        db_config = CONFIG[SQLiteDBConfig]
-        connector = SQLiteConnector(path=db_config.path)
-
-        extra_ips = [a.strip() for a in s.extra_addresses.split(",") if a.strip()]
-        extra_domains = [d.strip() for d in s.extra_domains.split(",") if d.strip()]
-
-        query = build_ioc_query(
-            addresses=list(s.addresses),
-            domains=list(s.domains),
-            urls=list(s.urls),
-            extra_addresses=extra_ips,
-            extra_domains=extra_domains,
-            start_time=s.start_time,
-            end_time=s.end_time,
-            view=s.view,
-            limit=s.limit,
-        )
-
-        async with connector.execute(query) as q:
-            rows = list(q._rows)
-            columns = [col[0] for col in q.schema]
-
-        import polars as pl
-
-        df = pl.DataFrame(rows, schema=columns, orient="row")
-        table.load(df)
-
-    with mui.Stack(spacing=2, sx=dict(my=1)):
-        # --- IOC summary chips ---
-        if state.addresses or state.domains or state.urls:
-            with mui.Stack(spacing=0.5):
-                mui.Typography("IOCs to search", variant="subtitle2")
-                with mui.Box(sx=dict(display="flex", flexWrap="wrap", gap=0.5)):
-                    for addr in state.addresses:
-                        mui.Chip(label=addr, size="small", color="warning")
-                    for domain in state.domains:
-                        mui.Chip(label=domain, size="small", color="info")
-                    for url in state.urls:
-                        mui.Chip(label=url, size="small")
 
         # --- Filters ---
         with mui.Grid(container=True, spacing=1):
@@ -912,11 +1016,17 @@ def FlowSearch(  # noqa: N802
                         mui.MenuItem(str(n), value=n)
 
         # --- Submit ---
+        n_sel = len(sel_ips) + len(sel_domains) + len(sel_urls)
         mui.Button(
             "Search Flows" if not search.pending else "Searching…",
             variant="contained",
-            disabled=search.pending,
-            onClick=lambda: search.start(state),
+            disabled=search.pending or n_sel == 0,
+            onClick=lambda: search.start(
+                state,
+                tuple(v.split()[0] for v in sel_ips),
+                tuple(sel_domains),
+                tuple(sel_urls),
+            ),
             fullWidth=True,
         )
 
@@ -930,68 +1040,5 @@ def FlowSearch(  # noqa: N802
                 mui.Alert(str(exc), severity="error")
             case search.Result():
                 display(table)  # noqa: F821
-```
-
-## Observable Analysis Dashboard
-
-This component unifies the analysis workflow: it accepts a single observable,
-allows you to run Quick Analysis or Extract IOCs, and seamlessly connects the
-extracted IOCs to the Network Flow Search below.
-
-```python
-@react.component
-def ObservableAnalysis() -> None:
-    input_obs, set_input_obs = react.use_state("")
-    observable, set_observable = react.use_state("")
-    
-    qa_trigger, set_qa_trigger = react.use_state(0)
-    ext_trigger, set_ext_trigger = react.use_state(0)
-    
-    extracted_iocs, set_extracted_iocs = react.use_state(T.cast(IOCSet | None, None))
-    
-    def on_qa():
-        set_observable(input_obs)
-        set_qa_trigger(qa_trigger + 1)
-        
-    def on_ext():
-        set_observable(input_obs)
-        set_ext_trigger(ext_trigger + 1)
-        
-    with mui.Stack(spacing=2, sx=dict(my=2)):
-        with mui.Stack(direction="row", spacing=1, alignItems="center"):
-            with mui.Box(sx=dict(flex=1)):
-                mui.TextField(
-                    label="Observable (hash / IP / domain / URL)",
-                    value=input_obs,
-                    onChange=callback("$[0].target.value")(set_input_obs),
-                    fullWidth=True,
-                    size="small",
-                )
-            mui.Button(
-                "Quick Analysis",
-                variant="contained",
-                onClick=on_qa,
-                disabled=not input_obs,
-            )
-            mui.Button(
-                "Extract IOCs",
-                variant="contained",
-                onClick=on_ext,
-                disabled=not input_obs,
-            )
-            
-        if qa_trigger > 0:
-            QuickAnalysis(observable=observable, trigger=qa_trigger)
-            
-        if ext_trigger > 0:
-            ExtractIOCs(observable=observable, trigger=ext_trigger, on_iocs=set_extracted_iocs)
-            
-        mui.Divider()
-        FlowSearch(iocs=extracted_iocs)
-
-ObservableAnalysis()
-```
-
-```python
-
+FlowSearch()
 ```
