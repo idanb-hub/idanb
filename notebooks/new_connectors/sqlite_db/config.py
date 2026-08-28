@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import dataclasses
-from pathlib import Path
+
+import typing_extensions as T
+
+if T.TYPE_CHECKING:
+    from pathlib import Path
 
 
 @dataclasses.dataclass()

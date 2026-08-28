@@ -32,11 +32,11 @@ from ipymui.components import mui
 
 import pydantic.dataclasses
 
+from analytics.connectors.http import HTTPConnector
 from idanb import meta, react, ui, utils
 from idanb.meta import CONFIG
 
 from new_connectors.sqlite_db import SQLiteConnector
-from new_connectors.http import HTTPConnector
 ```
 
 ```python
