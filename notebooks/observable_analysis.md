@@ -411,28 +411,21 @@ def build_ioc_query(
 # ---------------------------------------------------------------------------
 # Cross-section bridge state
 # ---------------------------------------------------------------------------
-import ipywidgets as _ipw
 
 # Part 1 → Part 2: observable pushed from QuickAnalysis to ExtractIOCs.
-_qa_observable: str = ""
-_qa_obs_version = _ipw.IntText(value=0)
+Observable = react.create_global("")
 
 
 def _on_analyse_done(obs: str) -> None:
-    global _qa_observable
-    _qa_observable = obs
-    _qa_obs_version.value += 1
+    Observable.set(obs)
 
 
 # Part 2 → Part 3: IOCs pushed from ExtractIOCs to FlowSearch.
-_extracted_iocs: IOCSet | None = None
-_iocs_version = _ipw.IntText(value=0)
+ExtractedIOCs = react.create_global[IOCSet | None](None)
 
 
 def _on_iocs(iocs: IOCSet) -> None:
-    global _extracted_iocs
-    _extracted_iocs = iocs
-    _iocs_version.value += 1
+    ExtractedIOCs.set(iocs)
 ```
 
 ## Quick Analysis
@@ -694,14 +687,8 @@ def ExtractIOCs(  # noqa: N802
 
     # Subscribe to Part 1 (QuickAnalysis) observable pushes — pre-fill the
     # input field whenever the user runs analysis in Part 1.
-    def _subscribe_qa() -> T.Callable[[], None]:
-        def _on_qa_change(change: dict) -> None:
-            set_input_obs(_qa_observable)
-
-        _qa_obs_version.observe(_on_qa_change, names=["value"])
-        return lambda: _qa_obs_version.unobserve(_on_qa_change, names=["value"])
-
-    react.use_effect(_subscribe_qa, [])
+    _qa_observable, _ = react.use_global(Observable)
+    react.use_effect(lambda: set_input_obs(_qa_observable), [_qa_observable])
 
     match extract.status:
         case extract.NotCalled():
@@ -792,41 +779,26 @@ def FlowSearch(  # noqa: N802
     state, set_state = react.use_store(FlowSearchState())
 
     # Subscribe to cross-section IOC pushes from Part 2 (ExtractIOCs).
-    # _iocs_version is a module-level ipywidgets.IntText; when its value
-    # increments the observer fires set_ext_version, which triggers a re-render
-    # so FlowSearch can read the freshly-stored _extracted_iocs.
-    ext_version, set_ext_version = react.use_state(0)
 
     # Per-category IOC selection — auto-populated when new IOCs arrive.
     sel_ips, set_sel_ips = react.use_state(frozenset[str]())
     sel_domains, set_sel_domains = react.use_state(frozenset[str]())
     sel_urls, set_sel_urls = react.use_state(frozenset[str]())
 
-    def _subscribe() -> T.Callable[[], None]:
-        def _on_change(change: dict) -> None:
-            set_ext_version(change["new"])
-
-        _iocs_version.observe(_on_change, names=["value"])
-        return lambda: _iocs_version.unobserve(_on_change, names=["value"])
-
-    react.use_effect(_subscribe, [])
-
     # Pre-populate from IOCs whenever they arrive — either via the `iocs` prop
     # (wired mode) or via the shared counter (cross-section push from Part 2).
-    effective_iocs = (_extracted_iocs if ext_version > 0 else None) or iocs
+    extracted_iocs, _ = react.use_global(ExtractedIOCs)
+    effective_iocs = extracted_iocs if extracted_iocs is not None else iocs
 
     # Clear selection whenever a new IOCSet arrives so the user picks
     # explicitly which IOCs to include in the search.
-    react.use_effect(
-        lambda: (
-            set_sel_ips(frozenset()),
-            set_sel_domains(frozenset()),
-            set_sel_urls(frozenset()),
-        )
-        if effective_iocs is not None
-        else None,
-        [ext_version, iocs],
-    )
+    def on_effective_iocs() -> None:
+        if effective_iocs is not None:
+            set_sel_ips(frozenset())
+            set_sel_domains(frozenset())
+            set_sel_urls(frozenset())
+
+    react.use_effect(on_effective_iocs, [effective_iocs])
 
     @react.use_task()
     async def search(
