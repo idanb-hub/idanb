@@ -18,7 +18,6 @@ from idanb.nbinit import logger
 
 ```python
 import asyncio
-import base64
 import dataclasses
 import socket
 import textwrap
@@ -32,83 +31,25 @@ from ipymui.components import mui
 
 import pydantic.dataclasses
 
-from analytics.connectors.http import HTTPConnector
 from idanb import meta, react, ui, utils
 from idanb.meta import CONFIG
 from modules.sqlite_db import SQLiteConnector
+from modules.virtustotal import VirtusTotalConnector
+```
+
+```python
+virus_total = VirtusTotalConnector()
 ```
 
 ```python
 # ---------------------------------------------------------------------------
-# Configuration
+# SQLite config
 # ---------------------------------------------------------------------------
 
-VT_BASE_URL = "https://www.virustotal.com/api/v3/"
-
-
-@CONFIG.register("virustotal")
-@pydantic.dataclasses.dataclass()
-class VirusTotalConfig:
-    api_key: str
-
-
-@CONFIG.register("sqlite_db")
+@meta.CONFIG.register("sqlite_db")
 @pydantic.dataclasses.dataclass()
 class SQLiteDBConfig:
     path: str
-```
-
-```python
-# ---------------------------------------------------------------------------
-# VirusTotal helper: observable type detection and endpoint routing
-# ---------------------------------------------------------------------------
-
-def _is_url(observable: str) -> bool:
-    return observable.startswith("https://") or observable.startswith("http://")
-
-
-def _url_id(url: str) -> str:
-    """VirusTotal URL identifier (base64url-encoded, no padding)."""
-    return base64.urlsafe_b64encode(url.encode()).decode().rstrip("=")
-
-
-def _vt_endpoint(observable: str) -> str:
-    """Return the VT API v3 path for the given observable."""
-    if _is_url(observable):
-        return f"urls/{_url_id(observable)}?relationships=comments"
-
-    # IPv4 / IPv6 heuristic: contains '.' or ':'
-    if "." in observable or ":" in observable:
-        try:
-            socket.inet_pton(socket.AF_INET, observable)
-            return f"ip_addresses/{observable}?relationships=resolutions"
-        except OSError:
-            pass
-        try:
-            socket.inet_pton(socket.AF_INET6, observable)
-            return f"ip_addresses/{observable}?relationships=resolutions"
-        except OSError:
-            pass
-        # Otherwise treat as domain
-        return f"domains/{observable}?relationships=resolutions"
-
-    # No '.' or ':' → file hash
-    return (
-        f"files/{observable}"
-        "?relationships=contacted_ips,contacted_domains,contacted_urls,"
-        "bundled_files,dropped_files"
-    )
-
-
-def _gui_link(report: dict[str, T.Any]) -> str:
-    return (
-        report["data"]["links"]["self"]
-        .replace("/api/v3/", "/gui/")
-        .replace("/files/", "/file/")
-        .replace("/ip_addresses/", "/ip-address/")
-        .replace("/domains/", "/domain/")
-        .replace("/urls/", "/url/")
-    )
 ```
 
 ```python
@@ -454,18 +395,7 @@ def QuickAnalysis(  # noqa: N802
 
     @react.use_task()
     async def analyse(obs: str) -> dict[str, T.Any]:
-        vt_config = CONFIG[VirusTotalConfig]
-        connector = HTTPConnector(mode="json")
-        endpoint = _vt_endpoint(obs)
-        report: dict[str, T.Any] = await connector.get(
-            VT_BASE_URL + endpoint,
-            headers={
-                "accept": "application/json",
-                "x-apikey": vt_config.api_key,
-            },
-        )
-        await connector.close()
-        return report
+        return await virus_total.observable(obs)
 
     def submit(formdata: dict[str, str]) -> None:
         obs = formdata["observable"].strip()
@@ -527,7 +457,7 @@ def QuickAnalysis(  # noqa: N802
                             )
                         mui.Link(
                             "Open full report on VirusTotal",
-                            href=_gui_link(report),
+                            href=virus_total.gui_link(report),
                             target="_blank",
                             underline="hover",
                             variant="body2",
@@ -590,21 +520,10 @@ def ExtractIOCs(  # noqa: N802
 
     @react.use_task()
     async def extract(obs: str, rpt: dict[str, T.Any] | None) -> IOCSet:
-        vt_config = CONFIG[VirusTotalConfig]
-        connector = HTTPConnector(mode="json")
-        headers = {
-            "accept": "application/json",
-            "x-apikey": vt_config.api_key,
-        }
-
         # Standalone mode: fetch the VT report first.
         if rpt is None:
-            rpt = await connector.get(
-                VT_BASE_URL + _vt_endpoint(obs),
-                headers=headers,
-            )
+            rpt = await virus_total.observable(obs)
             if "error" in rpt:
-                await connector.close()
                 raise RuntimeError(rpt["error"].get("message", "Unknown VT error"))
 
         iocs = _extract_direct_iocs(obs, rpt)
@@ -618,11 +537,7 @@ def ExtractIOCs(  # noqa: N802
 
         for file_hash in related_files:
             await asyncio.sleep(0.1)  # respect VT public API rate limit
-            file_report: dict[str, T.Any] = await connector.get(
-                VT_BASE_URL + f"files/{file_hash}"
-                "?relationships=contacted_ips,contacted_domains,contacted_urls",
-                headers=headers,
-            )
+            file_report = await virus_total.file_report(file_hash)
             if "error" in file_report:
                 continue
             malicious = file_report["data"]["attributes"][
@@ -632,8 +547,6 @@ def ExtractIOCs(  # noqa: N802
                 continue
             file_iocs = _extract_direct_iocs(file_hash, file_report)
             iocs = _merge_iocs(iocs, file_iocs)
-
-        await connector.close()
 
         # Resolve IP addresses in a thread pool.
         all_ips = iocs.all_ips()
