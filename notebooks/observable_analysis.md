@@ -841,7 +841,7 @@ def FlowSearch(  # noqa: N802
                 label: str,
                 items: tuple[tuple[str, bool], ...],
                 sel: frozenset[str],
-                set_sel: T.Callable[[frozenset[str]], None],
+                set_sel: react.Setter[frozenset[str]],
             ) -> None:
                 with mui.Stack(
                     direction="row",
@@ -877,11 +877,6 @@ def FlowSearch(  # noqa: N802
                 with mui.Box(sx=dict(display="flex", flexWrap="wrap", gap=0.5)):
                     for value, is_direct in items:
                         selected = value in sel
-                        toggle = (
-                            lambda v: lambda: set_sel(
-                                lambda s: s - {v} if v in s else s | {v}
-                            )
-                        )(value)
 
                         mui.Chip(
                             label=value,
@@ -893,7 +888,9 @@ def FlowSearch(  # noqa: N802
                                 + " IOC — click to "
                                 + ("deselect" if selected else "select")
                             ),
-                            onClick=toggle,
+                            onClick=lambda v=value: set_sel(
+                                lambda s: s.symmetric_difference({v}),
+                            ),
                             clickable=True,
                         )
 
