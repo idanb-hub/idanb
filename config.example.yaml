@@ -6,7 +6,6 @@ virustotal:
 sqlite_db:
   path: null # fill in; path to the SQLite network flow database
 
-
 data_platform:
   hosts:
     short_queries: trino-1.svc.csirt.muni.cz

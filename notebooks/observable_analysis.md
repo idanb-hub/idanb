@@ -21,18 +21,16 @@ import asyncio
 import dataclasses
 import socket
 import textwrap
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from urllib.parse import urlparse
 
 import typing_extensions as T
 import ipymui
-from ipymui import callback
+import polars as pl
+import pydantic.dataclasses
 from ipymui.components import mui
 
-import pydantic.dataclasses
-
 from idanb import meta, react, ui, utils
-from idanb.meta import CONFIG
 from modules.sqlite_db import SQLiteConnector
 from modules.virtustotal import VirtusTotalConnector
 ```
@@ -46,6 +44,7 @@ virus_total = VirtusTotalConnector()
 # SQLite config
 # ---------------------------------------------------------------------------
 
+
 @meta.CONFIG.register("sqlite_db")
 @pydantic.dataclasses.dataclass()
 class SQLiteDBConfig:
@@ -57,7 +56,9 @@ class SQLiteDBConfig:
 # IOC data model
 # ---------------------------------------------------------------------------
 
-class IOCSet(utils.immutable.Record):
+
+@dataclasses.dataclass()
+class IOCSet:
     """Extracted indicators of compromise from a VirusTotal report.
 
     Each entry is a tuple of (value, is_direct) where `is_direct` is True for
@@ -84,7 +85,8 @@ class IOCSet(utils.immutable.Record):
 # IOC extraction logic (ported from old utilities)
 # ---------------------------------------------------------------------------
 
-def _extract_direct_iocs(
+
+def _extract_direct_iocs(  # noqa: C901
     observable: str,
     report: dict[str, T.Any],
 ) -> IOCSet:
@@ -106,8 +108,7 @@ def _extract_direct_iocs(
             if ip:
                 ips.append((ip, True))
     if "contacted_ips" in rels:
-        for item in rels["contacted_ips"]["data"]:
-            ips.append((item["id"], True))
+        ips.extend((item["id"], True) for item in rels["contacted_ips"]["data"])
 
     # --- Domains ---
     if obs_type == "domain":
@@ -115,19 +116,22 @@ def _extract_direct_iocs(
     if obs_type == "ip_address" and "resolutions" in rels:
         for item in rels["resolutions"]["data"]:
             # resolution id is "<ip><domain>", strip the leading IP part
-            domain = item["id"][len(observable):]
+            domain = item["id"][len(observable) :]
             if domain:
                 domains.append((domain, True))
     if "contacted_domains" in rels:
-        for item in rels["contacted_domains"]["data"]:
-            domains.append((item["id"], True))
+        domains.extend(
+            (item["id"], True) for item in rels["contacted_domains"]["data"]
+        )
 
     # --- URLs ---
     if obs_type == "url":
         urls.append((observable, True))
     if "contacted_urls" in rels:
-        for item in rels["contacted_urls"]["data"]:
-            urls.append((item["context_attributes"]["url"], True))
+        urls.extend(
+            (item["context_attributes"]["url"], True)
+            for item in rels["contacted_urls"]["data"]
+        )
 
     return IOCSet(
         ip_addresses=tuple(ips),
@@ -137,25 +141,19 @@ def _extract_direct_iocs(
 
 
 def _merge_iocs(base: IOCSet, extra: IOCSet) -> IOCSet:
-    """Merge indirect IOCs into the accumulator, deduplicating against direct ones."""
+    """Merge indirect IOCs into the accumulator, except those already there."""
     existing_ips = {v for v, _ in base.ip_addresses}
     existing_domains = {v for v, _ in base.domains}
     existing_urls = {v for v, _ in base.urls}
 
     new_ips = tuple(
-        (v, False)
-        for v, _ in extra.ip_addresses
-        if v not in existing_ips
+        (v, False) for v, _ in extra.ip_addresses if v not in existing_ips
     )
     new_domains = tuple(
-        (v, False)
-        for v, _ in extra.domains
-        if v not in existing_domains
+        (v, False) for v, _ in extra.domains if v not in existing_domains
     )
     new_urls = tuple(
-        (v, False)
-        for v, _ in extra.urls
-        if v not in existing_urls
+        (v, False) for v, _ in extra.urls if v not in existing_urls
     )
 
     return IOCSet(
@@ -265,12 +263,13 @@ DATA_VIEWS: dict[str, dict[str, str]] = {
 # IOC query builder (ported from old_notebooks/utilities/queries.py)
 # ---------------------------------------------------------------------------
 
+
 def _ip_clause(ips: list[str], src_col: str, dst_col: str) -> str:
     if not ips:
         return "FALSE"
     parts = []
     for ip in ips:
-        col = dst_col if ":" in ip else src_col  # choose IPv6 col for v6 addrs
+        _col = dst_col if ":" in ip else src_col  # choose IPv6 col for v6 addrs
         # Use both source and destination columns
         parts.append(f"{src_col} = '{ip}'")
         parts.append(f"{dst_col} = '{ip}'")
@@ -280,13 +279,14 @@ def _ip_clause(ips: list[str], src_col: str, dst_col: str) -> str:
 def _domain_clause(domains: list[str]) -> str:
     if not domains:
         return "FALSE"
-    parts = []
-    for d in domains:
-        parts.append(
+    parts = [
+        (
             f"proto__http__host_http LIKE '{d}'"
             f" OR proto__tls__sni_tls LIKE '{d}'"
             f" OR proto__dns__qname_dns LIKE '{d}'"
         )
+        for d in domains
+    ]
     return " OR ".join(parts)
 
 
@@ -305,7 +305,7 @@ def _url_clause(urls: list[str]) -> str:
     return " OR ".join(parts)
 
 
-def build_ioc_query(
+def build_ioc_query(  # noqa: PLR0913
     *,
     addresses: list[str],
     domains: list[str],
@@ -345,7 +345,7 @@ def build_ioc_query(
             AND ({where_iocs})
         ORDER BY tslocal ASC
         {limit_clause}
-    """)
+    """)  # noqa: S608
 ```
 
 ```python
@@ -377,7 +377,7 @@ link to the full report.
 
 ```python
 @react.component
-def QuickAnalysis(  # noqa: N802
+def QuickAnalysis(  # noqa: C901, N802
     *,
     on_report: T.Callable[[str, dict[str, T.Any]], None] | None = None,
     on_analyse_done: T.Callable[[str], None] | None = None,
@@ -387,6 +387,7 @@ def QuickAnalysis(  # noqa: N802
     Args:
         on_report: Called with (observable, report) when analysis succeeds.
             When provided, an "Extract IOCs" button is shown in the results.
+        on_analyse_done: Called with (observable) when analysis starts.
     """
     if on_report is None:
         on_report = utils.functional.void
@@ -405,7 +406,7 @@ def QuickAnalysis(  # noqa: N802
             on_analyse_done(obs)
 
     with mui.Stack(spacing=1, sx=dict(my=1)):
-        with mui.Stack(direction="row", spacing=1, alignItems="center"):
+        with mui.Stack(direction="row", spacing=1, alignItems="center"):  # noqa: SIM117
             with mui.Box(component="form", action=submit, sx=dict(flex=1)):
                 mui.TextField(
                     label="Observable (hash / IP / domain / URL)",
@@ -444,7 +445,11 @@ def QuickAnalysis(  # noqa: N802
                     undetected = stats.get("undetected", 0)
 
                     with mui.Stack(spacing=1):
-                        with mui.Stack(direction="row", spacing=2, alignItems="center"):
+                        with mui.Stack(
+                            direction="row",
+                            spacing=2,
+                            alignItems="center",
+                        ):
                             mui.Chip(
                                 label=f"Malicious: {malicious}/{total}",
                                 color="error" if malicious > 0 else "default",
@@ -471,14 +476,16 @@ def QuickAnalysis(  # noqa: N802
                                 onClick=lambda: on_report(observable, report),
                                 sx=dict(alignSelf="flex-start"),
                             )
+
+
 QuickAnalysis(on_analyse_done=_on_analyse_done)
 ```
 
 ## Extract IOCs
 
 Extracts IP addresses, domains, and URLs associated with the observable from its
-VirusTotal report (direct IOCs which are highlighted with blue color in the report). 
-Also checks any bundled or dropped files referenced in the report — if a related file is 
+VirusTotal report (direct IOCs which are highlighted with blue color in the report).
+Also checks any bundled or dropped files referenced in the report — if a related file is
 itself flagged as malicious (≥ 5 detections), its IOCs are included as indirect IOCs.
 
 > **Note — passive DNS:** Extracted IP addresses and domains may include historical
@@ -487,7 +494,7 @@ itself flagged as malicious (≥ 5 detections), its IOCs are included as indirec
 
 ```python
 @react.component
-def ExtractIOCs(  # noqa: N802
+def ExtractIOCs(  # noqa: C901, N802, PLR0915
     *,
     observable: str = "",
     report: dict[str, T.Any] | None = None,
@@ -514,9 +521,7 @@ def ExtractIOCs(  # noqa: N802
 
     # Guard: track the last IOCSet we already forwarded to Part 3 so we don't
     # re-fire on_iocs on every re-render.
-    _last_iocs_sent, _set_last_iocs_sent = react.use_state(
-        T.cast(IOCSet | None, None)
-    )
+    _last_iocs_sent, _set_last_iocs_sent = react.use_state[IOCSet | None](None)
 
     @react.use_task()
     async def extract(obs: str, rpt: dict[str, T.Any] | None) -> IOCSet:
@@ -524,7 +529,9 @@ def ExtractIOCs(  # noqa: N802
         if rpt is None:
             rpt = await virus_total.observable(obs)
             if "error" in rpt:
-                raise RuntimeError(rpt["error"].get("message", "Unknown VT error"))
+                raise RuntimeError(
+                    rpt["error"].get("message", "Unknown VT error")
+                )
 
         iocs = _extract_direct_iocs(obs, rpt)
 
@@ -558,7 +565,7 @@ def ExtractIOCs(  # noqa: N802
         resolutions = await asyncio.gather(*[resolve(ip) for ip in all_ips])
         ips_with_res = tuple(
             (f"{ip} {res}".strip(), direct)
-            for (ip, direct), res in zip(iocs.ip_addresses, resolutions)
+            for (ip, direct), res in zip(iocs.ip_addresses, resolutions)  # noqa: B905
         )
 
         return IOCSet(
@@ -566,7 +573,6 @@ def ExtractIOCs(  # noqa: N802
             domains=iocs.domains,
             urls=iocs.urls,
         )
-
 
     def submit(formdata: dict[str, str]) -> None:
         obs = formdata["observable"].strip()
@@ -594,7 +600,9 @@ def ExtractIOCs(  # noqa: N802
 
     # Wired mode: trigger extraction whenever a new report arrives via props.
     react.use_effect(
-        lambda: extract.start(observable, report) if report is not None else None,
+        lambda: (
+            extract.start(observable, report) if report is not None else None
+        ),
         [observable, report],
     )
 
@@ -614,10 +622,8 @@ def ExtractIOCs(  # noqa: N802
         case extract.Result(iocs):
             # Auto-push ALL IOCs to Part 3 on first render of this result.
             # Guard: _last_iocs_sent prevents re-firing on every re-render.
-            # Note: IOCSet is a Record (has __call__), so we must wrap in a
-            # lambda to prevent reacton from treating it as a functional updater.
-            if on_iocs is not utils.functional.void and iocs is not _last_iocs_sent:
-                _set_last_iocs_sent(lambda _: iocs)
+            if iocs is not _last_iocs_sent:
+                _set_last_iocs_sent(iocs)
                 on_iocs(iocs)
 
             def _chip_list(
@@ -626,9 +632,15 @@ def ExtractIOCs(  # noqa: N802
             ) -> None:
                 mui.Typography(label, variant="subtitle2")
                 if not items:
-                    mui.Typography("None", variant="body2", color="text.secondary")
+                    mui.Typography(
+                        "None",
+                        variant="body2",
+                        color="text.secondary",
+                    )
                     return
-                with mui.Box(sx=dict(display="flex", flexWrap="wrap", gap=0.5, mt=0.5)):
+                with mui.Box(
+                    sx=dict(display="flex", flexWrap="wrap", gap=0.5, mt=0.5),
+                ):
                     for value, is_direct in items:
                         mui.Chip(
                             label=value,
@@ -680,7 +692,7 @@ class FlowSearchState(utils.immutable.Record):
 
 
 @react.component
-def FlowSearch(  # noqa: N802
+def FlowSearch(  # noqa: C901, N802, PLR0915
     *,
     iocs: IOCSet | None = None,
 ) -> None:
@@ -720,11 +732,15 @@ def FlowSearch(  # noqa: N802
         doms: tuple[str, ...],
         urls: tuple[str, ...],
     ) -> None:
-        db_config = CONFIG[SQLiteDBConfig]
+        db_config = meta.CONFIG[SQLiteDBConfig]
         connector = SQLiteConnector(path=db_config.path)
 
-        extra_ips = [a.strip() for a in s.extra_addresses.split(",") if a.strip()]
-        extra_domains = [d.strip() for d in s.extra_domains.split(",") if d.strip()]
+        extra_ips = [
+            a.strip() for a in s.extra_addresses.split(",") if a.strip()
+        ]
+        extra_domains = [
+            d.strip() for d in s.extra_domains.split(",") if d.strip()
+        ]
 
         query = build_ioc_query(
             addresses=list(addrs),
@@ -739,10 +755,8 @@ def FlowSearch(  # noqa: N802
         )
 
         async with connector.execute(query) as q:
-            rows = list(q._rows)
+            rows = list(await q.collect())
             columns = [col[0] for col in q.schema]
-
-        import polars as pl
 
         df = pl.DataFrame(rows, schema=columns, orient="row")
         table.load(df)
@@ -750,6 +764,7 @@ def FlowSearch(  # noqa: N802
     with mui.Stack(spacing=2, sx=dict(my=1)):
         # --- IOC selector (populated from Part 2 results) ---
         if effective_iocs is not None:
+
             def _selectable_chip_list(
                 label: str,
                 items: tuple[tuple[str, bool], ...],
@@ -777,7 +792,11 @@ def FlowSearch(  # noqa: N802
                             variant="caption",
                             sx=dict(cursor="pointer"),
                         )
-                        mui.Typography("·", variant="caption", color="text.disabled")
+                        mui.Typography(
+                            "·",
+                            variant="caption",
+                            color="text.disabled",
+                        )
                         mui.Link(
                             "none",
                             onClick=lambda: set_sel(frozenset()),
@@ -785,7 +804,11 @@ def FlowSearch(  # noqa: N802
                             sx=dict(cursor="pointer"),
                         )
                 if not items:
-                    mui.Typography("None", variant="body2", color="text.secondary")
+                    mui.Typography(
+                        "None",
+                        variant="body2",
+                        color="text.secondary",
+                    )
                     return
                 with mui.Box(sx=dict(display="flex", flexWrap="wrap", gap=0.5)):
                     for value, is_direct in items:
@@ -833,7 +856,7 @@ def FlowSearch(  # noqa: N802
                 mui.TextField(
                     label="Extra IP Addresses (comma-separated)",
                     value=state.extra_addresses,
-                    onChange=callback("$[0].target.value")(
+                    onChange=ipymui.callback("$[0].target.value")(
                         lambda v: set_state(extra_addresses=v),
                     ),
                     fullWidth=True,
@@ -844,7 +867,7 @@ def FlowSearch(  # noqa: N802
                 mui.TextField(
                     label="Extra Domains (comma-separated)",
                     value=state.extra_domains,
-                    onChange=callback("$[0].target.value")(
+                    onChange=ipymui.callback("$[0].target.value")(
                         lambda v: set_state(extra_domains=v),
                     ),
                     fullWidth=True,
@@ -871,24 +894,30 @@ def FlowSearch(  # noqa: N802
                     sx=dict(width="100%"),
                 )
 
-            with mui.Grid(size=2), mui.FormControl(fullWidth=True, size="small"):
+            with (
+                mui.Grid(size=2),
+                mui.FormControl(fullWidth=True, size="small"),
+            ):
                 mui.InputLabel("View")
                 with mui.Select(
                     label="View",
                     value=state.view,
-                    onChange=callback("$[0].target.value")(
+                    onChange=ipymui.callback("$[0].target.value")(
                         lambda v: set_state(view=v),
                     ),
                 ):
                     for name in DATA_VIEWS:
                         mui.MenuItem(name.capitalize(), value=name)
 
-            with mui.Grid(size=2), mui.FormControl(fullWidth=True, size="small"):
+            with (
+                mui.Grid(size=2),
+                mui.FormControl(fullWidth=True, size="small"),
+            ):
                 mui.InputLabel("Limit")
                 with mui.Select(
                     label="Limit",
                     value=state.limit,
-                    onChange=callback("$[0].target.value")(
+                    onChange=ipymui.callback("$[0].target.value")(
                         lambda v: set_state(limit=int(v) if v else None),
                     ),
                 ):
@@ -920,6 +949,8 @@ def FlowSearch(  # noqa: N802
             case search.Exception(exc):
                 mui.Alert(str(exc), severity="error")
             case search.Result():
-                display(table)  # noqa: F821
+                display(table)
+
+
 FlowSearch()
 ```

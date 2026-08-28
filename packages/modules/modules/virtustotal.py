@@ -13,6 +13,7 @@ from idanb import meta
 # VirusTotal helper: observable type detection and endpoint routing
 # ---------------------------------------------------------------------------
 
+
 def _is_url(observable: str) -> bool:
     return observable.startswith(("https://", "http://"))
 
@@ -56,6 +57,7 @@ def _vt_endpoint(observable: str) -> str:
 # VirusTotal connector
 # ---------------------------------------------------------------------------
 
+
 @meta.CONFIG.register("virustotal")
 @pydantic.dataclasses.dataclass()
 class VirusTotalConfig:
@@ -98,8 +100,7 @@ class VirtusTotalConnector(HTTPConnector[T.Any]):
     def gui_link(report: dict[str, T.Any]) -> str:
         link: str = report["data"]["links"]["self"]
         return (
-            link
-            .replace("/api/v3/", "/gui/")
+            link.replace("/api/v3/", "/gui/")
             .replace("/files/", "/file/")
             .replace("/ip_addresses/", "/ip-address/")
             .replace("/domains/", "/domain/")
