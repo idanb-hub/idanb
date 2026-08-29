@@ -32,11 +32,11 @@ from ipymui.components import mui
 
 from idanb import meta, react, ui, utils
 from modules.sqlite_db import SQLiteConnector
-from modules.virtustotal import VirtusTotalConnector
+from modules.virustotal import VirusTotalConnector
 ```
 
 ```python
-virus_total = VirtusTotalConnector()
+virus_total = VirusTotalConnector()
 ```
 
 ```python
@@ -813,6 +813,11 @@ def FlowSearch(  # noqa: C901, N802, PLR0915
                 with mui.Box(sx=dict(display="flex", flexWrap="wrap", gap=0.5)):
                     for value, is_direct in items:
                         selected = value in sel
+                        toggle = (
+                            lambda v: lambda: set_sel(
+                                lambda s: s - {v} if v in s else s | {v}
+                            )
+                        )(value)
 
                         mui.Chip(
                             label=value,
@@ -824,9 +829,7 @@ def FlowSearch(  # noqa: C901, N802, PLR0915
                                 + " IOC — click to "
                                 + ("deselect" if selected else "select")
                             ),
-                            onClick=lambda v=value: set_sel(
-                                lambda s: s.symmetric_difference({v}),
-                            ),
+                            onClick=toggle,
                             clickable=True,
                         )
 
@@ -953,4 +956,16 @@ def FlowSearch(  # noqa: C901, N802, PLR0915
 
 
 FlowSearch()
+```
+
+```python
+
+```
+
+```python
+
+```
+
+```python
+
 ```

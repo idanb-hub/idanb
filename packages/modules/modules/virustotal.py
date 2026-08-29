@@ -64,7 +64,7 @@ class VirusTotalConfig:
     api_key: str
 
 
-class VirtusTotalConnector(HTTPConnector[T.Any]):
+class VirusTotalConnector(HTTPConnector[T.Any]):
     def __init__(self, config: VirusTotalConfig | None = None) -> None:
         if config is None:
             config = meta.CONFIG[VirusTotalConfig]
@@ -85,14 +85,7 @@ class VirtusTotalConnector(HTTPConnector[T.Any]):
 
     async def file_report(self, file_hash: str) -> dict[str, T.Any]:
         async with self.get(
-            f"files/{file_hash}",
-            params={
-                "relationships": [
-                    "contacted_ips",
-                    "contacted_domains",
-                    "contacted_urls",
-                ],
-            },
+            f"files/{file_hash}?relationships=contacted_ips,contacted_domains,contacted_urls"
         ) as response:
             return await response.json()
 
