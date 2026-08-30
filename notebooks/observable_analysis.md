@@ -396,6 +396,7 @@ def QuickAnalysis(  # noqa: C901, N802
 
     @react.use_task()
     async def analyse(obs: str) -> dict[str, T.Any]:
+        virus_total = VirusTotalConnector()
         return await virus_total.observable(obs)
 
     def submit(formdata: dict[str, str]) -> None:
