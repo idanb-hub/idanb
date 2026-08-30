@@ -7,6 +7,7 @@ members = [
     "idanb",
     "idanb-labconfig",
     "idanb-lib",
+    "idanb-modules",
 ]
 
 [[package]]
@@ -642,6 +643,7 @@ dependencies = [
     { name = "anywidget" },
     { name = "idanb-labconfig" },
     { name = "idanb-lib" },
+    { name = "idanb-modules" },
     { name = "ipykernel" },
     { name = "ipymui" },
     { name = "ipywidgets" },
@@ -673,6 +675,7 @@ requires-dist = [
     { name = "anywidget", specifier = ">=0.9.13" },
     { name = "idanb-labconfig", editable = "packages/labconfig" },
     { name = "idanb-lib", editable = "packages/idanb-lib" },
+    { name = "idanb-modules", editable = "packages/modules" },
     { name = "ipykernel", specifier = ">=6.29.5" },
     { name = "ipymui", index = "https://codeberg.org/api/packages/steovd/pypi/simple/" },
     { name = "ipywidgets", specifier = ">=8.1.5" },
@@ -749,6 +752,11 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [{ name = "typing-extensions", specifier = ">=4.15.0" }]
+
+[[package]]
+name = "idanb-modules"
+version = "0.1.0"
+source = { editable = "packages/modules" }
 
 [[package]]
 name = "idna"
