@@ -813,11 +813,6 @@ def FlowSearch(  # noqa: C901, N802, PLR0915
                 with mui.Box(sx=dict(display="flex", flexWrap="wrap", gap=0.5)):
                     for value, is_direct in items:
                         selected = value in sel
-                        toggle = (
-                            lambda v: lambda: set_sel(
-                                lambda s: s - {v} if v in s else s | {v}
-                            )
-                        )(value)
 
                         mui.Chip(
                             label=value,
@@ -829,7 +824,9 @@ def FlowSearch(  # noqa: C901, N802, PLR0915
                                 + " IOC — click to "
                                 + ("deselect" if selected else "select")
                             ),
-                            onClick=toggle,
+                            onClick=lambda *, v=value: set_sel(
+                                lambda s: s.symmetric_difference({v}),
+                            ),
                             clickable=True,
                         )
 
