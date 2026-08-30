@@ -528,6 +528,7 @@ def ExtractIOCs(  # noqa: C901, N802, PLR0915
     async def extract(obs: str, rpt: dict[str, T.Any] | None) -> IOCSet:
         # Standalone mode: fetch the VT report first.
         if rpt is None:
+            virus_total = VirusTotalConnector()
             rpt = await virus_total.observable(obs)
             if "error" in rpt:
                 raise RuntimeError(
