@@ -2,33 +2,37 @@ from __future__ import annotations
 
 import asyncio
 import sqlite3
-import typing
 
-from new_connectors import _common as common
+import typing_extensions as T
 
-if typing.TYPE_CHECKING:
+from analytics.connectors import _common as common
+
+if T.TYPE_CHECKING:
     from collections.abc import AsyncIterator, Iterator
     from pathlib import Path
 
     from .config import SQLiteConfig
 
 
+type Column = tuple[str, None, None, None, None, None, None]
+
+
 class SQLiteQuery:
     """Fully fetched query results."""
 
     _rows: list[tuple[object, ...]]
-    _description: list[sqlite3.Column]
+    _description: list[Column]
 
     def __init__(
         self,
         rows: list[tuple[object, ...]],
-        description: list[sqlite3.Column],
+        description: list[Column],
     ) -> None:
         self._rows = rows
         self._description = description
 
     @property
-    def schema(self) -> list[sqlite3.Column]:
+    def schema(self) -> list[Column]:
         """Column descriptions returned by the query."""
         return self._description
 

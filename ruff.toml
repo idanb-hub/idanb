@@ -59,6 +59,7 @@ combine-as-imports = true
 known-first-party = [
     "analytics",
     "idanb",
+    "modules",
 ]
 
 [lint.pycodestyle]

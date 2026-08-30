@@ -9,6 +9,7 @@ dependencies = [
     "anywidget>=0.9.13",
     "idanb-labconfig",
     "idanb-lib",
+    "idanb-modules",
     "ipykernel>=6.29.5",
     "ipymui",
     "ipywidgets>=8.1.5",
@@ -38,6 +39,7 @@ dev = [
 [tool.basedpyright]
 extraPaths = [
     "packages/idanb-lib/src",
+    "packages/modules",
 ]
 venv = ".venv"
 venvPath = "."
@@ -62,9 +64,11 @@ url = "https://codeberg.org/api/packages/steovd/pypi/simple/"
 idanb-labconfig = { workspace = true }
 idanb-lib = { workspace = true }
 ipymui = { index = "ipymui" }
+idanb-modules = { workspace = true }
 
 [tool.uv.workspace]
 members = [
     "packages/labconfig",
     "packages/idanb-lib",
+    "packages/modules",
 ]
