@@ -1,0 +1,27 @@
+from __future__ import annotations
+
+import typing_extensions as T
+import reacton
+from IPython.display import display
+from reacton import ipywidgets
+
+from idanb import ui, widgets
+
+
+@reacton.component
+def StyleTest() -> None:  # noqa: N802
+    widgets.HTML.element("black")
+
+    with ipywidgets.Box():
+        with ipywidgets.Box():
+            ui.LocalStyle(color="red")
+            widgets.HTML.element("red")
+        widgets.HTML.element("black")
+
+    with ipywidgets.Box():
+        ui.LocalStyle({"color": "green", "& em": dict(color="blue")})
+        widgets.HTML.element("green")
+        widgets.HTML.element("<em>blue</em>")
+
+
+display(StyleTest())

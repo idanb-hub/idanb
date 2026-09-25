@@ -1,0 +1,82 @@
+extend = "pyproject.toml"
+
+line-length = 80
+
+[lint]
+select = ["ALL"]
+ignore = [
+    "A002",    # Function argument shadowing builtin.
+    "ANN401",  # Use of `typing.Any`.
+    "CPY001",  # Missing copyright notice.
+    "D1",      # Missing docstrings.
+    "D202",    # Blank line after function docstring.
+    "D203",    # Blank line required before class docstring.
+    "D213",    # Multi-line docstring summary should start at the second line.
+    "D413",    # Missing blank line after last docstring section.
+    "D418",    # Docstring on `@overload`-ed function (some LSPs support this).
+    "N812",    # Lowercase imported as uppercase (`import typing as T`).
+    "PLW0108", # Unnecessary lambda.
+    "S101",    # Use of `assert` (useful for type narrowing).
+    "TC005",   # Empty type-checking block (to avoid unused `T`).
+    "TD002",   # Missing author in TODO (just use git blame).
+    "TD003",   # Missing issue link in TODO.
+
+    # https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
+    "W191",
+    "E111",
+    "E114",
+    "E117",
+    "D206",
+    "D300",
+    "Q000",
+    "Q001",
+    "Q002",
+    "Q003",
+    "COM812",
+    "COM819",
+    "ISC002",
+    "E501",
+]
+task-tags = [
+    "TODO",
+    "FIXME",
+    # Not a tag, but avoids `codespell:ignore` reported as commented-out code.
+    "codespell",
+]
+
+[lint.flake8-boolean-trap]
+extend-allowed-calls = [
+    "idanb.react.create_global",
+    "idanb.react.use_state",
+]
+
+[lint.flake8-comprehensions]
+# More ergonomic for defining props (i.e. MUI's `sx`).
+allow-dict-calls-with-keyword-arguments = true
+
+[lint.flake8-import-conventions.aliases]
+typing_extensions = "T"
+
+[lint.flake8-tidy-imports.banned-api]
+"typing".msg = "use `import typing_extensions as T` instead"
+
+[lint.isort]
+force-to-top = ["typing_extensions"]
+force-wrap-aliases = true
+combine-as-imports = true
+known-first-party = [
+    "idanb",
+]
+required-imports = [
+    "from __future__ import annotations",
+    "import typing_extensions as T",
+]
+
+[lint.pycodestyle]
+max-doc-length = 80  # unlimited by default
+
+[lint.per-file-ignores]
+"**/__init__.py" = [
+    "I002",    # Missing required imports.
+    "PLC0414", # Useless import aliases (used for re-exporting imports).
+]

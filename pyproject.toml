@@ -1,0 +1,82 @@
+[project]
+name = "idanb"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "aiofile>=3.12.3",
+    "anywidget>=0.9.21",
+    "ipymui",
+    "ipywidgets>=8.1.9",
+    "loguru>=0.7.3",
+    "perspective-python>=4.2.0",
+    "polars[pyarrow]>=1.22.0",
+    "pygit2>=1.18.2",
+    "pyyaml>=6.0.2",
+    "reacton>=1.9.1",
+    "typing-extensions>=4.16.0",
+    "watchdog>=6.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.40.1",
+    "codespell>=2.4.3",
+    "conventional-pre-commit>=4.4.0",
+    "jupyterlab>=4.6.4",
+    "mdformat>=1.0.0",
+    "prek>=0.5.3",
+    "pytest>=9.0.2",
+    "pytest-asyncio>=1.4.0",
+    "pytest-playwright-asyncio>=0.9.0",
+    "pytest-print>=1.3.0",
+    "ruff>=0.16.8",
+    "voila>=0.5.8",
+    "xdoctest>=1.3.2",
+]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.basedpyright]
+stubPath = "./typings"
+# For importing all types from `typing_extensions`.
+deprecateTypingAliases = false
+# For `Sentinel` support.
+enableExperimentalFeatures = true
+# Too noisy with Reacton components.
+reportUnusedCallResult = false
+# Ruff does this already.
+reportPrivateUsage = false
+
+[tool.codespell]
+ignore-words = ".codespell-whitelist.txt"
+skip = "*.csv"
+
+[tool.pytest]
+strict = true
+addopts = [
+    "--xdoctest",
+]
+testpaths = [
+    "tests",
+    "idanb",
+]
+# Discover async tests automatically.
+asyncio_mode = "auto"
+# Use one event loop for all tests.
+asyncio_default_test_loop_scope = "session"
+asyncio_default_fixture_loop_scope = "session"
+
+[tool.ruff]
+# Moved to => ruff.toml
+
+[tool.setuptools]
+packages = ["idanb"]
+
+[[tool.uv.index]]
+name = "ipymui"
+url = "https://codeberg.org/api/packages/steovd/pypi/simple/"
+
+[tool.uv.sources]
+ipymui = { index = "ipymui" }

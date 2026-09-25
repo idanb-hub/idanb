@@ -1,0 +1,57 @@
+from __future__ import annotations
+
+import tempfile
+from pathlib import Path
+
+import typing_extensions as T
+import reacton
+from IPython.display import display
+from reacton import ipywidgets
+
+from idanb import meta, widgets
+
+
+def get_tempdir() -> Path:
+    _, params = meta.nburl()
+    tempdirs = params.get("tempdir")
+    tempdir = tempdirs[0] if tempdirs else tempfile.gettempdir()
+    return Path(tempdir)
+
+
+@reacton.component
+def UploadTest() -> None:  # noqa: N802
+    chunk_size, set_chunk_size = reacton.use_state(
+        int(widgets.Upload.chunk_size.default_value),
+    )
+
+    ipywidgets.IntText(
+        description="Chunk size",
+        value=chunk_size,
+        on_value=set_chunk_size,
+    )
+
+    progress, set_progress = reacton.use_state(
+        dict[Path, widgets.UploadProgress](),
+    )
+
+    tempdir = reacton.use_memo(get_tempdir)
+
+    widgets.Upload.element(
+        on_progress=lambda value: set_progress(
+            lambda progress: progress | value,
+        ),
+        chunk_size=chunk_size,
+        guard=lambda name: tempdir / name,
+    )
+    with ipywidgets.VBox():
+        for path, (done, size) in progress.items():
+            with ipywidgets.Box():
+                ipywidgets.IntProgress(
+                    value=done,
+                    max=size,
+                    description=str(path),
+                    bar_style="success" if done == size else "info",
+                )
+
+
+display(UploadTest())

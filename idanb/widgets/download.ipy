@@ -1,0 +1,35 @@
+from __future__ import annotations
+
+import typing_extensions as T
+import reacton
+from IPython.display import display
+from reacton import ipywidgets
+
+from idanb import meta, widgets
+
+
+@reacton.component
+def DownloadTest() -> None:  # noqa: N802
+    path, set_path = reacton.use_state(str(meta.nbpath()))
+
+    ipywidgets.Text(
+        description="Path",
+        value=path,
+        on_value=set_path,
+    )
+
+    download, set_download = reacton.use_state(True)
+
+    ipywidgets.Checkbox(
+        description="Download",
+        value=download,
+        on_value=set_download,
+    )
+
+    widgets.Download.element(
+        path=path,
+        download=("" if download else None),
+    )
+
+
+display(DownloadTest())

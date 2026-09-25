@@ -1,0 +1,34 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "target": "esnext",
+    "lib": [
+      "DOM",
+      "DOM.Iterable",
+      // https://caniuse.com/?search=ES2023
+      "ES2023",
+    ],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    // More strict type checking.
+    "allowUnreachableCode": false,
+    "allowUnusedLabels": false,
+    // Doesn't work with `@perspective-dev/viewer@5.5.1`.
+    // "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noUncheckedIndexedAccess": true,
+  },
+  "include": [
+    "**/*",
+    // Hidden files too.
+    "**/.*",
+  ],
+}

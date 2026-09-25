@@ -1,0 +1,101 @@
+default_install_hook_types:
+  - pre-commit
+  - commit-msg
+default_stages:
+  - pre-commit
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-case-conflict
+      - id: check-executables-have-shebangs
+      - id: check-illegal-windows-names
+      - id: check-merge-conflict
+      - id: check-shebang-scripts-are-executable
+      - id: check-toml
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: fix-byte-order-marker
+      - id: trailing-whitespace
+  - repo: local
+    # Prefer local hooks over "official" pre-commit repos, because those often
+    # ship their own binaries. Local hooks use tools from project environment,
+    # which keeps their versions consistent between CI and local dev.
+    hooks:
+      - id: conventional-pre-commit
+        name: conventional-pre-commit
+        language: python
+        additional_dependencies: ["uv"]
+        entry: uv run --active conventional-pre-commit
+        args:
+          - --verbose
+        always_run: true
+        stages: [commit-msg]
+      - id: basedpyright
+        name: basedpyright
+        language: python
+        additional_dependencies: ["uv"]
+        entry: uv run --active basedpyright
+        args:
+          - --level=error # suppress warnings
+        types_or: ["python"]
+        require_serial: true
+      - id: ruff-check
+        name: ruff check
+        language: python
+        additional_dependencies: ["uv"]
+        entry: uv run --active ruff check
+        args:
+          - --ignore=FIX # allow FIXME and similar comments
+        types: ["python"]
+        require_serial: true
+      - id: ruff-format
+        name: ruff format
+        language: python
+        additional_dependencies: ["uv"]
+        entry: uv run --active ruff format
+        types: ["python"]
+        require_serial: true
+      - id: codespell
+        name: codespell
+        language: python
+        additional_dependencies: ["uv"]
+        entry: uv run --active codespell
+        types: [text]
+      - id: mdformat
+        name: mdformat
+        language: python
+        additional_dependencies: ["uv"]
+        entry: uv run --active mdformat
+        types: [markdown]
+      # Run `pnpm` scripts of front-end code.
+      - id: pnpm-install
+        name: pnpm install
+        language: node
+        additional_dependencies: ["pnpm"]
+        entry: pnpm install
+        pass_filenames: false
+        always_run: true
+      - id: tsc
+        name: tsc
+        language: node
+        additional_dependencies: ["pnpm"]
+        entry: pnpm exec ./dev/scripts/tsc_files.py
+        types_or: ["javascript"]
+        require_serial: true
+      - id: eslint
+        name: eslint
+        language: node
+        additional_dependencies: ["pnpm"]
+        entry: pnpm eslint
+        types_or: ["javascript"]
+        require_serial: true
+      - id: prettier
+        name: prettier
+        language: node
+        additional_dependencies: ["pnpm"]
+        entry: pnpm prettier
+        args:
+          - --write
+        types_or: ["css", "javascript", "json", "ts", "yaml"]
+        require_serial: true

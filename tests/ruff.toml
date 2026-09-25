@@ -1,0 +1,6 @@
+extend = "../ruff.toml"
+
+[lint]
+extend-ignore = [
+    "INP001",   # implicit namespace package (no `__init__.py`)
+]

@@ -1,0 +1,27 @@
+.venv:
+  image: mcr.microsoft.com/playwright/python:v1.63.0-noble
+  before_script:
+    - pip install uv
+    - uv sync --frozen --all-extras
+    - source .venv/bin/activate
+
+pre-commit:
+  stage: test
+  extends: .venv
+  script:
+    - prek run --all-files
+
+pytest:
+  stage: test
+  variables:
+    # Tests need complete history.
+    GIT_DEPTH: 0
+  extends: .venv
+  script: >
+    pytest
+    -vv
+    --junitxml=report.xml
+  artifacts:
+    when: always
+    reports:
+      junit: report.xml

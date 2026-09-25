@@ -1,0 +1,6 @@
+extend = "../../ruff.toml"
+
+[lint]
+extend-ignore = [
+    "SIM117",   # Combine `with` statements (ugly with Reacton components).
+]

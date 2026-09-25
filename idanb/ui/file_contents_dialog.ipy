@@ -1,0 +1,24 @@
+from __future__ import annotations
+
+import typing_extensions as T
+import reacton
+from ipymui.components import mui
+from IPython.display import display
+
+from idanb import meta, react, ui
+
+
+@reacton.component
+def Test() -> None:  # noqa: N802
+    open, set_open = react.use_state(True)
+
+    mui.Button("Open", onClick=lambda: set_open(True))
+
+    ui.FileContentsDialog(
+        path=meta.nbpath(),
+        open=open,
+        on_close=lambda: set_open(False),
+    )
+
+
+display(Test())

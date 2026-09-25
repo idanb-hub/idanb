@@ -1,0 +1,39 @@
+from __future__ import annotations
+
+import typing_extensions as T
+import reacton
+from IPython.display import display
+from ipywidgets import Output
+from reacton import ipywidgets
+
+from idanb import widgets
+
+if T.TYPE_CHECKING:
+    pass
+
+
+rpc = widgets.RPC()
+out = Output()
+out.add_class("test-output")
+print = out.capture()(print)
+
+
+@reacton.component
+def RPCTest() -> None:  # noqa: N802
+    expr, set_expr = reacton.use_state("")
+
+    ipywidgets.Textarea(
+        value=expr,
+        on_value=set_expr,
+        placeholder="print(message)",
+    )
+
+    ipywidgets.Button(
+        description="Submit",
+        on_click=lambda: rpc.eval(expr, print=print, message="hello world"),
+    )
+
+    display(rpc, out)
+
+
+display(RPCTest())

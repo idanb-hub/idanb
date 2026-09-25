@@ -1,0 +1,4 @@
+pnpm-lock.yaml
+
+# Hidden directories (probably cache or something).
+.*/

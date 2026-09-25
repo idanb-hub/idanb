@@ -1,0 +1,23 @@
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
+
+body {
+  /* A4 page width. */
+  width: 210mm;
+  overflow: hidden;
+}
+
+div:has(#rendered_cells),
+#rendered_cells {
+  contain: none !important;
+  height: auto !important;
+  position: static !important;
+}
+
+* {
+  break-after: avoid;
+  break-before: avoid;
+  break-inside: auto;
+}

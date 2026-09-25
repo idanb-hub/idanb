@@ -1,0 +1,32 @@
+from __future__ import annotations
+
+import typing_extensions as T
+import polars as pl
+from IPython.display import display
+from perspective.widget import PerspectiveWidget
+
+from idanb import widgets
+
+if T.TYPE_CHECKING:
+    pass
+
+
+datagrid = widgets.Datagrid(
+    data=pl.DataFrame({
+        "id": [1, 2, 3, 4, 5, 6],
+        "color": ["red", "green", "yellow", "blue", "magenta", "cyan"],
+    }),
+    templates={
+        "color": '<span style="color: ${$}">${$}</span>',
+    },
+    styles={
+        "datagrid": """\
+            td[data-column='color'] span {
+              font-weight: bold;
+            }
+        """,
+    },
+    filter=[("color", "!=", "yellow")],
+)
+
+display(datagrid)
