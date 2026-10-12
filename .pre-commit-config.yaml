@@ -73,28 +73,28 @@ repos:
         name: pnpm install
         language: node
         additional_dependencies: ["pnpm"]
-        entry: pnpm install
+        entry: npx pnpm install
         pass_filenames: false
         always_run: true
       - id: tsc
         name: tsc
         language: node
         additional_dependencies: ["pnpm"]
-        entry: pnpm exec ./dev/scripts/tsc_files.py
+        entry: npx pnpm exec ./dev/scripts/tsc_files.py
         types_or: ["javascript"]
         require_serial: true
       - id: eslint
         name: eslint
         language: node
         additional_dependencies: ["pnpm"]
-        entry: pnpm eslint
+        entry: npx pnpm eslint
         types_or: ["javascript"]
         require_serial: true
       - id: prettier
         name: prettier
         language: node
         additional_dependencies: ["pnpm"]
-        entry: pnpm prettier
+        entry: npx pnpm prettier
         args:
           - --write
         types_or: ["css", "javascript", "json", "ts", "yaml"]
