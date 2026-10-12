@@ -151,7 +151,25 @@ export default {
   async render(props) {
     const { model, el } = props;
     const widget = await getPerspectiveWidget(model);
-    const cleanup = await widget.render?.(props);
+    let cleanup = await widget.render?.(props);
+
+    async function runCleanup() {
+      if (cleanup !== undefined) {
+        await cleanup();
+        cleanup = undefined;
+      }
+    }
+
+    async function renderWidget() {
+      await runCleanup();
+      cleanup = await widget.render?.(props);
+    }
+
+    // Perspective widget doesn't implement reloading tables.
+    // https://github.com/perspective-dev/perspective/blob/v5.5.1/packages/anywidget/src/js/index.js#L145
+    model.on("change:table_name", () => {
+      renderWidget().catch(console.error);
+    });
 
     /** @type{HTMLPerspectiveViewerElement?} */
     const viewer = el.querySelector("perspective-viewer");
@@ -165,6 +183,6 @@ export default {
     makeTableDataSelectable(datagrid);
     applyTemplates(datagrid.regular_table, model.get("templates"));
 
-    return cleanup;
+    return runCleanup;
   },
 };
