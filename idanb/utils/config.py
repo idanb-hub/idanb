@@ -161,17 +161,17 @@ class Config[Data]:
         >>> c.get("key")
         Traceback (most recent call last):
         ...
-        idanb.utils.config.ConfigTypeError: expected Mapping, found list (at .)
+        utils.config.ConfigTypeError: expected Mapping, found list (at .)
 
         >>> c.get(1, "key", type=int)
         Traceback (most recent call last):
         ...
-        idanb.utils.config.ConfigTypeError: expected int, found str (at [1].key)
+        utils.config.ConfigTypeError: expected int, found str (at [1].key)
 
         >>> c.get(0, type=str, default="missing")
         Traceback (most recent call last):
         ...
-        idanb.utils.config.ConfigTypeError: expected str, found int (at [0])
+        utils.config.ConfigTypeError: expected str, found int (at [0])
 
         """
         typ = type
